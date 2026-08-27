@@ -1,11 +1,13 @@
--- // TWKS - Murders vs Sheriffs Hub (Fixed Triggerbot Crosshair Check & Syntax)
+-- // TWKS Hub - Murders vs Sheriffs (Mobile Edition with Config & Custom Colors)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local CurrentCamera = workspace.CurrentCamera
 
+-- КОНФИГУРАЦИЯ
 getgenv().TWKS_Config = {
     Aimbot = false,
     AimPart = "HumanoidRootPart",
@@ -18,12 +20,18 @@ getgenv().TWKS_Config = {
     Box2D = false,
     Lines = false,
     Names = false,
+    ESP_ColorR = 1,
+    ESP_ColorG = 1,
+    ESP_ColorB = 1,
     
     OffsetX = 0,
     OffsetY = 0,
     
     Chams = false,
-    ChamsColor = Color3.fromRGB(255, 0, 0),
+    ChamsColorR = 1,
+    ChamsColorG = 0,
+    ChamsColorB = 0,
+    ChamsTransparency = 0.5,
     
     MobileButton = false,
     ClickOffsetX = 50,
@@ -45,9 +53,46 @@ getgenv().TWKS_Config = {
     }
 }
 
-local originalSizes = {}
+-- СИСТЕМА КОНФИГОВ (SAVE / LOAD)
+local function saveConfig()
+    pcall(function()
+        local cfg = getgenv().TWKS_Config
+        local data = {
+            Sensitivity = cfg.Sensitivity,
+            ESP_ColorR = cfg.ESP_ColorR,
+            ESP_ColorG = cfg.ESP_ColorG,
+            ESP_ColorB = cfg.ESP_ColorB,
+            ChamsColorR = cfg.ChamsColorR,
+            ChamsColorG = cfg.ChamsColorG,
+            ChamsColorB = cfg.ChamsColorB,
+            ChamsTransparency = cfg.ChamsTransparency,
+            HitboxSize = cfg.HitboxSize,
+            CFlySpeed = cfg.CFlySpeed
+        }
+        if writefile then
+            writefile("TWKS_Config.json", HttpService:JSONEncode(data))
+        end
+    end)
+end
 
--- СИСТЕМА СОХРАНЕНИЯ КОМАНД С СЕРВЕРА
+local function loadConfig()
+    pcall(function()
+        if isfile and isfile("TWKS_Config.json") then
+            local content = readfile("TWKS_Config.json")
+            local data = HttpService:JSONDecode(content)
+            if data then
+                local cfg = getgenv().TWKS_Config
+                for k, v in pairs(data) do
+                    cfg[k] = v
+                end
+            end
+        end
+    end)
+end
+
+loadConfig()
+
+local originalSizes = {}
 local cachedTeams = {}
 
 pcall(function()
@@ -64,7 +109,7 @@ pcall(function()
     end)
 end)
 
--- СОЗДАНИЕ GUI В COREGUI С ПРИОРИТЕТОМ ОТОБРАЖЕНИЯ
+-- СОЗДАНИЕ GUI
 local successGui, ScreenGui = pcall(function()
     local gui = Instance.new("ScreenGui")
     gui.Name = "TWKS_Hub"
@@ -82,7 +127,7 @@ if not successGui or not ScreenGui then
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- МОБИЛЬНЫЕ КНОПКИ ДЛЯ УПРАВЛЕНИЯ C-FLY (Вверх / Вниз)
+-- МОБИЛЬНЫЕ КНОПКИ C-FLY
 local FlyUpBtn = Instance.new("TextButton")
 FlyUpBtn.Size = UDim2.new(0, 50, 0, 50)
 FlyUpBtn.Position = UDim2.new(0.9, -60, 0.4, 0)
@@ -123,7 +168,6 @@ FlyUpBtn.MouseButton1Up:Connect(function() isFlyingUp = false end)
 FlyDownBtn.MouseButton1Down:Connect(function() isFlyingDown = true end)
 FlyDownBtn.MouseButton1Up:Connect(function() isFlyingDown = false end)
 
--- ЛОГИКА C-FLY
 local cflyConnection
 local originalGravity = workspace.Gravity
 local storedCFlyCFrame = nil
@@ -180,7 +224,7 @@ local function toggleCFly(state)
     end
 end
 
--- Главное окно
+-- ГЛАВНОЕ ОКНО
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 420, 0, 310)
 MainFrame.Position = UDim2.new(0.5, -210, 0.5, -155)
@@ -194,7 +238,6 @@ local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, 8)
 MainCorner.Parent = MainFrame
 
--- Шапка
 local Header = Instance.new("TextLabel")
 Header.Size = UDim2.new(1, -40, 0, 30)
 Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -209,7 +252,6 @@ local HCorner = Instance.new("UICorner")
 HCorner.CornerRadius = UDim.new(0, 8)
 HCorner.Parent = Header
 
--- Кнопка закрытия
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.Position = UDim2.new(1, -30, 0, 0)
@@ -224,7 +266,6 @@ local CBCorner = Instance.new("UICorner")
 CBCorner.CornerRadius = UDim.new(0, 8)
 CBCorner.Parent = CloseBtn
 
--- Плавающая кнопка возврата меню
 local ToggleMenuBtn = Instance.new("TextButton")
 ToggleMenuBtn.Size = UDim2.new(0, 45, 0, 45)
 ToggleMenuBtn.Position = UDim2.new(0, 15, 0.4, 0)
@@ -252,12 +293,11 @@ ToggleMenuBtn.MouseButton1Click:Connect(function()
     ToggleMenuBtn.Visible = false
 end)
 
--- Вкладки
 local TabsHolder = Instance.new("ScrollingFrame")
 TabsHolder.Size = UDim2.new(0, 100, 1, -35)
 TabsHolder.Position = UDim2.new(0, 0, 0, 30)
 TabsHolder.BackgroundTransparency = 1
-TabsHolder.CanvasSize = UDim2.new(0, 0, 0, 200)
+TabsHolder.CanvasSize = UDim2.new(0, 0, 0, 250)
 TabsHolder.ScrollBarThickness = 2
 TabsHolder.Parent = MainFrame
 
@@ -284,7 +324,7 @@ local function createTab(name, posY)
     container.Size = UDim2.new(1, -110, 1, -35)
     container.Position = UDim2.new(0, 105, 0, 32)
     container.BackgroundTransparency = 1
-    container.CanvasSize = UDim2.new(0, 0, 0, 700)
+    container.CanvasSize = UDim2.new(0, 0, 0, 800)
     container.ScrollBarThickness = 4
     container.Visible = false
     container.Parent = ContainerHolder
@@ -309,6 +349,7 @@ local TabVisuals = createTab("Visuals", 35)
 local TabChams = createTab("Chams", 70)
 local TabRage = createTab("Rage", 105)
 local TabMisc = createTab("Misc", 140)
+local TabConfig = createTab("Configs", 175)
 
 TabAimbot.Visible = true
 
@@ -418,6 +459,7 @@ local function addPresetButton(parent, text, multiplier)
     end)
 end
 
+-- НАПОЛНЕНИЕ ВКЛАДОК
 addToggle(TabAimbot, "Aimbot Active", "Aimbot")
 addToggle(TabAimbot, "Wall Check", "WallCheck")
 
@@ -428,7 +470,51 @@ addToggle(TabVisuals, "Nickname", "Names")
 addSliderBox(TabVisuals, "ESP Offset X", "OffsetX", 5)
 addSliderBox(TabVisuals, "ESP Offset Y", "OffsetY", 5)
 
+-- КНОПКИ СМЕНЫ ЦВЕТА ESP
+local espColorTitle = Instance.new("TextLabel")
+espColorTitle.Size = UDim2.new(1, -5, 0, 20)
+espColorTitle.BackgroundTransparency = 1
+espColorTitle.Text = "--- Цвет ESP ---"
+espColorTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
+espColorTitle.Font = Enum.Font.GothamBold
+espColorTitle.TextSize = 11
+espColorTitle.Parent = TabVisuals
+
+local function addColorPreset(parent, name, r, g, b, isChams)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -5, 0, 24)
+    btn.BackgroundColor3 = Color3.new(r, g, b)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.Parent = parent
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 4)
+    c.Parent = btn
+    
+    btn.MouseButton1Click:Connect(function()
+        if isChams then
+            getgenv().TWKS_Config.ChamsColorR = r
+            getgenv().TWKS_Config.ChamsColorG = g
+            getgenv().TWKS_Config.ChamsColorB = b
+        else
+            getgenv().TWKS_Config.ESP_ColorR = r
+            getgenv().TWKS_Config.ESP_ColorG = g
+            getgenv().TWKS_Config.ESP_ColorB = b
+        end
+    end)
+end
+
+addColorPreset(TabVisuals, "ESP Белый", 1, 1, 1, false)
+addColorPreset(TabVisuals, "ESP Зеленый", 0, 1, 0, false)
+addColorPreset(TabVisuals, "ESP Красный", 1, 0, 0, false)
+
 addToggle(TabChams, "Chams Enabled", "Chams")
+addColorPreset(TabChams, "Чамс Красный", 1, 0, 0, true)
+addColorPreset(TabChams, "Чамс Синий", 0, 0.5, 1, true)
+addColorPreset(TabChams, "Чамс Фиолетовый", 0.6, 0, 1, true)
 
 addToggle(TabRage, "Triggerbot (Auto-Fire)", "Triggerbot")
 addToggle(TabRage, "C-Fly (Desync Fly)", "CFly")
@@ -453,59 +539,42 @@ addToggle(TabMisc, "Mobile Center Clicker", "MobileButton")
 addSliderBox(TabMisc, "Click Offset X", "ClickOffsetX", 5)
 addSliderBox(TabMisc, "Click Offset Y", "ClickOffsetY", 5)
 
-local quickMenuTitle = Instance.new("TextLabel")
-quickMenuTitle.Size = UDim2.new(1, -5, 0, 22)
-quickMenuTitle.BackgroundTransparency = 1
-quickMenuTitle.Text = "--- Экранные кнопки функций ---"
-quickMenuTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
-quickMenuTitle.Font = Enum.Font.GothamBold
-quickMenuTitle.TextSize = 11
-quickMenuTitle.Parent = TabMisc
+-- КНОПКИ КОНФИГОВ
+local saveBtn = Instance.new("TextButton")
+saveBtn.Size = UDim2.new(1, -5, 0, 35)
+saveBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+saveBtn.Text = "Сохранить конфиг"
+saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+saveBtn.Font = Enum.Font.GothamBold
+saveBtn.TextSize = 12
+saveBtn.Parent = TabConfig
 
-local function addQuickButtonToggle(parent, text, quickKey)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -5, 0, 28)
-    frame.BackgroundTransparency = 1
-    frame.Parent = parent
-    
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(0.65, 0, 1, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 12
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = frame
-    
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 45, 0, 22)
-    btn.Position = UDim2.new(0.7, 0, 0, 3)
-    btn.BackgroundColor3 = getgenv().TWKS_Config.QuickButtons[quickKey] and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
-    btn.Text = getgenv().TWKS_Config.QuickButtons[quickKey] and "ON" or "OFF"
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 11
-    btn.Parent = frame
-    
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 4)
-    c.Parent = btn
-    
-    btn.MouseButton1Click:Connect(function()
-        getgenv().TWKS_Config.QuickButtons[quickKey] = not getgenv().TWKS_Config.QuickButtons[quickKey]
-        local state = getgenv().TWKS_Config.QuickButtons[quickKey]
-        btn.BackgroundColor3 = state and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
-        btn.Text = state and "ON" or "OFF"
-    end)
-end
+local sCorner = Instance.new("UICorner")
+sCorner.CornerRadius = UDim.new(0, 6)
+sCorner.Parent = saveBtn
 
-addQuickButtonToggle(TabMisc, "Кнопка Aimbot", "Aimbot")
-addQuickButtonToggle(TabMisc, "Кнопка Triggerbot", "Triggerbot")
-addQuickButtonToggle(TabMisc, "Кнопка ESP", "ESP_Enabled")
-addQuickButtonToggle(TabMisc, "Кнопка C-Fly", "CFly")
-addQuickButtonToggle(TabMisc, "Кнопка Hitbox", "HitboxEnabled")
+saveBtn.MouseButton1Click:Connect(function()
+    saveConfig()
+end)
 
+local loadBtn = Instance.new("TextButton")
+loadBtn.Size = UDim2.new(1, -5, 0, 35)
+loadBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+loadBtn.Text = "Загрузить конфиг"
+loadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+loadBtn.Font = Enum.Font.GothamBold
+loadBtn.TextSize = 12
+loadBtn.Parent = TabConfig
+
+local lCorner = Instance.new("UICorner")
+lCorner.CornerRadius = UDim.new(0, 6)
+lCorner.Parent = loadBtn
+
+loadBtn.MouseButton1Click:Connect(function()
+    loadConfig()
+end)
+
+-- ПЛАВАЮЩИЕ КНОПКИ
 local activeFloatingButtons = {}
 
 local function createFloatingButton(name, text, startPosY, configKey)
@@ -585,26 +654,7 @@ CenterClickBtn.InputEnded:Connect(function(input)
     end
 end)
 
-RunService.RenderStepped:Connect(function()
-    local cfg = getgenv().TWKS_Config
-    CenterClickBtn.Visible = cfg.MobileButton
-    
-    for configKey, btnInstance in pairs(activeFloatingButtons) do
-        local showButton = cfg.QuickButtons[configKey]
-        if showButton then
-            btnInstance.Visible = true
-            local state = cfg[configKey]
-            if state then
-                btnInstance.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-            else
-                btnInstance.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-            end
-        else
-            btnInstance.Visible = false
-        end
-    end
-end)
-
+-- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ И ЛОГИКА
 local function getTargetCharacters()
     local characters = {}
     pcall(function()
@@ -684,7 +734,6 @@ local function getClosestEnemy()
     return target
 end
 
--- ИСПРАВЛЕННАЯ ФУНКЦИЯ ОЧИСТКИ ESP
 local espDrawings = {}
 
 local function clearESP()
@@ -709,9 +758,26 @@ local function removeCharESP(char)
     end
 end
 
+-- ОСНОВНОЙ ЦИКЛ РАБОТЫ (RENDERSTEPPED)
 RunService.RenderStepped:Connect(function()
     local cfg = getgenv().TWKS_Config
     local targetPart = getClosestEnemy()
+    
+    CenterClickBtn.Visible = cfg.MobileButton
+    
+    for configKey, btnInstance in pairs(activeFloatingButtons) do
+        local showButton = cfg.QuickButtons[configKey]
+        if showButton then
+            btnInstance.Visible = true
+            if cfg[configKey] then
+                btnInstance.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+            else
+                btnInstance.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+            end
+        else
+            btnInstance.Visible = false
+        end
+    end
     
     if cfg.CFly and not cflyConnection then
         toggleCFly(true)
@@ -754,6 +820,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
+    -- ОБНОВЛЕНИЕ ЧАМСОВ С КАСТОМНЫМ ЦВЕТОМ
     for _, char in ipairs(targets) do
         pcall(function()
             if cfg.Chams then
@@ -762,11 +829,11 @@ RunService.RenderStepped:Connect(function()
                     highlight = Instance.new("Highlight")
                     highlight.Name = "TWKS_Chams"
                     highlight.Adornee = char
-                    highlight.FillColor = cfg.ChamsColor
                     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    highlight.FillTransparency = 0.5
+                    highlight.FillTransparency = cfg.ChamsTransparency
                     highlight.Parent = char
                 end
+                highlight.FillColor = Color3.new(cfg.ChamsColorR, cfg.ChamsColorG, cfg.ChamsColorB)
             else
                 local highlight = char:FindFirstChild("TWKS_Chams")
                 if highlight then highlight:Destroy() end
@@ -774,6 +841,7 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
+    -- ОБНОВЛЕНИЕ ХИТБОКСОВ
     for _, char in ipairs(targets) do
         pcall(function()
             local part = char:FindFirstChild(cfg.HitboxPart) or char:FindFirstChildOfClass("BasePart")
@@ -794,6 +862,9 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
+    -- ОБНОВЛЕНИЕ ESP С КАСТОМНЫМ ЦВЕТОМ
+    local currentESPColor = Color3.new(cfg.ESP_ColorR, cfg.ESP_ColorG, cfg.ESP_ColorB)
+    
     if not cfg.ESP_Enabled then
         clearESP()
     else
@@ -810,19 +881,22 @@ RunService.RenderStepped:Connect(function()
                             Name = Drawing.new("Text")
                         }
                         espDrawings[char].Box.Thickness = 1
-                        espDrawings[char].Box.Color = Color3.fromRGB(255, 255, 255)
                         espDrawings[char].Box.Filled = false
                         
                         espDrawings[char].Line.Thickness = 1
-                        espDrawings[char].Line.Color = Color3.fromRGB(255, 255, 255)
                         
                         espDrawings[char].Name.Size = 14
                         espDrawings[char].Name.Center = true
                         espDrawings[char].Name.Outline = true
-                        espDrawings[char].Name.Color = Color3.fromRGB(255, 255, 255)
                     end
                     
                     local d = espDrawings[char]
+                    
+                    -- Применяем цвета на лету
+                    d.Box.Color = currentESPColor
+                    d.Line.Color = currentESPColor
+                    d.Name.Color = currentESPColor
+                    
                     local pos, onScreen = CurrentCamera:WorldToViewportPoint(primaryPart.Position + Vector3.new(cfg.OffsetX, cfg.OffsetY, 0))
                     
                     if onScreen and pos.Z > 0 then
