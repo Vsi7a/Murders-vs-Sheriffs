@@ -1,4 +1,4 @@
--- // TWKS Hub - Murders vs Sheriffs (Mobile Edition with Quick Buttons Toggle in Misc)
+-- // TWKS Hub - Murders vs Sheriffs (Fixed Independent WallCheck & Quick Buttons)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
@@ -12,9 +12,10 @@ getgenv().TWKS_Config = {
     Aimbot = false,
     AimPart = "HumanoidRootPart",
     Sensitivity = 0.3,
-    WallCheck = true,
+    AimbotWallCheck = true,
     
     Triggerbot = false,
+    TriggerWallCheck = true,
     
     ESP_Enabled = false,
     Box2D = false,
@@ -242,7 +243,7 @@ MainCorner.Parent = MainFrame
 local Header = Instance.new("TextLabel")
 Header.Size = UDim2.new(1, -40, 0, 30)
 Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-Header.Text = "  TWKS Hub | Floating Buttons Fixed"
+Header.Text = "  TWKS Hub | Independent WallChecks"
 Header.TextColor3 = Color3.fromRGB(255, 255, 255)
 Header.Font = Enum.Font.GothamBold
 Header.TextSize = 13
@@ -392,7 +393,6 @@ local function addToggle(parent, text, configKey)
     end)
 end
 
--- СПЕЦИАЛЬНЫЙ ТУМБЛЕР ДЛЯ QUICK BUTTONS (ПЛАВАЮЩИХ КНОПОК)
 local function addQuickButtonToggle(parent, text, configKey)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, -5, 0, 28)
@@ -545,7 +545,7 @@ end
 
 -- НАПОЛНЕНИЕ ВКЛАДОК
 addToggle(TabAimbot, "Aimbot Active", "Aimbot")
-addToggle(TabAimbot, "Wall Check", "WallCheck")
+addToggle(TabAimbot, "Aimbot WallCheck", "AimbotWallCheck")
 
 addToggle(TabVisuals, "ESP Enabled", "ESP_Enabled")
 addToggle(TabVisuals, "2D Box", "Box2D")
@@ -559,6 +559,7 @@ addToggle(TabChams, "Chams Enabled", "Chams")
 addHexColorInput(TabChams, "Chams HEX Color", "ChamsHex")
 
 addToggle(TabRage, "Triggerbot (Auto-Fire)", "Triggerbot")
+addToggle(TabRage, "Trigger WallCheck", "TriggerWallCheck")
 addToggle(TabRage, "C-Fly (Desync Fly)", "CFly")
 addSliderBox(TabRage, "C-Fly Speed", "CFlySpeed", 10)
 addToggle(TabRage, "Hitbox Expander", "HitboxEnabled")
@@ -577,7 +578,6 @@ addPresetButton(TabRage, "Legit (1.25)", 1.25)
 addPresetButton(TabRage, "Rage (x3)", 3)
 addPresetButton(TabRage, "Sky (x100 / Стабильный)", 100)
 
--- НАСТРОЙКИ В МИСКЕ (ВКЛЮЧАЯ ПЛАВАЮЩИЕ КНОПКИ)
 addToggle(TabMisc, "Mobile Center Clicker", "MobileButton")
 addSliderBox(TabMisc, "Click Offset X", "ClickOffsetX", 5)
 addSliderBox(TabMisc, "Click Offset Y", "ClickOffsetY", 5)
@@ -597,7 +597,6 @@ addQuickButtonToggle(TabMisc, "Плавающая кнопка: ESP", "ESP_Enabl
 addQuickButtonToggle(TabMisc, "Плавающая кнопка: FLY", "CFly")
 addQuickButtonToggle(TabMisc, "Плавающая кнопка: HIT", "HitboxEnabled")
 
--- ВКЛАДКА КОНФИГОВ С СТАТУСОМ
 local statusLbl = Instance.new("TextLabel")
 statusLbl.Size = UDim2.new(1, -5, 0, 25)
 statusLbl.BackgroundTransparency = 1
@@ -645,7 +644,6 @@ loadBtn.MouseButton1Click:Connect(function()
     statusLbl.TextColor3 = Color3.fromRGB(50, 200, 255)
 end)
 
--- ПЛАВАЮЩИЕ КНОПКИ
 local activeFloatingButtons = {}
 
 local function createFloatingButton(name, text, startPosY, configKey)
@@ -756,8 +754,28 @@ local function isEnemy(playerModel)
     return true
 end
 
-local function isVisible(targetPart)
-    if not getgenv().TWKS_Config.WallCheck then return true end
+-- РАЗДЕЛЬНЫЕ ФУНКЦИИ ПРОВЕРКИ СТЕН ДЛЯ AIMBOT И TRIGGERBOT
+local function isVisibleForAimbot(targetPart)
+    if not getgenv().TWKS_Config.AimbotWallCheck then return true end
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("Head") then return false end
+    
+    local origin = myChar.Head.Position
+    local direction = targetPart.Position - origin
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = {myChar, targetPart.Parent}
+    
+    local success, result = pcall(function()
+        return workspace:Raycast(origin, direction, raycastParams)
+    end)
+    
+    return success and result == nil
+end
+
+local function isVisibleForTrigger(targetPart)
+    if not getgenv().TWKS_Config.TriggerWallCheck then return true end
     local myChar = LocalPlayer.Character
     if not myChar or not myChar:FindFirstChild("Head") then return false end
     
@@ -785,7 +803,7 @@ local function getClosestEnemy()
                 or char:FindFirstChild("Head") 
                 or char:FindFirstChildOfClass("BasePart")
                 
-            if targetPart and isVisible(targetPart) then
+            if targetPart and isVisibleForAimbot(targetPart) then
                 local success, screenPoint, onScreen = pcall(function()
                     return CurrentCamera:WorldToViewportPoint(targetPart.Position)
                 end)
@@ -863,19 +881,27 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
-    if cfg.Triggerbot and targetPart then
-        local success, screenPoint, onScreen = pcall(function()
-            return CurrentCamera:WorldToViewportPoint(targetPart.Position)
-        end)
-        
-        if success and onScreen then
-            local viewport = CurrentCamera.ViewportSize
-            local screenCenter = Vector2.new(viewport.X / 2, viewport.Y / 2)
-            local targetScreenPos = Vector2.new(screenPoint.X, screenPoint.Y)
-            local crosshairDistance = (screenCenter - targetScreenPos).Magnitude
-            
-            if crosshairDistance <= 35 then
-                performClick()
+    if cfg.Triggerbot then
+        for _, char in ipairs(getTargetCharacters()) do
+            if isEnemy(char) then
+                local trigPart = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
+                if trigPart and isVisibleForTrigger(trigPart) then
+                    local success, screenPoint, onScreen = pcall(function()
+                        return CurrentCamera:WorldToViewportPoint(trigPart.Position)
+                    end)
+                    
+                    if success and onScreen then
+                        local viewport = CurrentCamera.ViewportSize
+                        local screenCenter = Vector2.new(viewport.X / 2, viewport.Y / 2)
+                        local targetScreenPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                        local crosshairDistance = (screenCenter - targetScreenPos).Magnitude
+                        
+                        if crosshairDistance <= 35 then
+                            performClick()
+                            break
+                        end
+                    end
+                end
             end
         end
     end
