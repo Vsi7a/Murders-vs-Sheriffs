@@ -1,4 +1,4 @@
--- // TWKS Hub - Murders vs Sheriffs (Mobile Edition with HEX Colors & Configs)
+-- // TWKS Hub - Murders vs Sheriffs (Mobile Edition with Quick Buttons Toggle in Misc)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
@@ -242,7 +242,7 @@ MainCorner.Parent = MainFrame
 local Header = Instance.new("TextLabel")
 Header.Size = UDim2.new(1, -40, 0, 30)
 Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-Header.Text = "  TWKS Hub | Configs & HEX Colors"
+Header.Text = "  TWKS Hub | Floating Buttons Fixed"
 Header.TextColor3 = Color3.fromRGB(255, 255, 255)
 Header.Font = Enum.Font.GothamBold
 Header.TextSize = 13
@@ -325,7 +325,7 @@ local function createTab(name, posY)
     container.Size = UDim2.new(1, -110, 1, -35)
     container.Position = UDim2.new(0, 105, 0, 32)
     container.BackgroundTransparency = 1
-    container.CanvasSize = UDim2.new(0, 0, 0, 800)
+    container.CanvasSize = UDim2.new(0, 0, 0, 900)
     container.ScrollBarThickness = 4
     container.Visible = false
     container.Parent = ContainerHolder
@@ -392,6 +392,45 @@ local function addToggle(parent, text, configKey)
     end)
 end
 
+-- СПЕЦИАЛЬНЫЙ ТУМБЛЕР ДЛЯ QUICK BUTTONS (ПЛАВАЮЩИХ КНОПОК)
+local function addQuickButtonToggle(parent, text, configKey)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -5, 0, 28)
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
+    
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.65, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.TextColor3 = Color3.fromRGB(200, 180, 255)
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextSize = 11
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = frame
+    
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 45, 0, 22)
+    btn.Position = UDim2.new(0.7, 0, 0, 3)
+    btn.BackgroundColor3 = getgenv().TWKS_Config.QuickButtons[configKey] and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+    btn.Text = getgenv().TWKS_Config.QuickButtons[configKey] and "ON" or "OFF"
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.Parent = frame
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 4)
+    c.Parent = btn
+    
+    btn.MouseButton1Click:Connect(function()
+        getgenv().TWKS_Config.QuickButtons[configKey] = not getgenv().TWKS_Config.QuickButtons[configKey]
+        local state = getgenv().TWKS_Config.QuickButtons[configKey]
+        btn.BackgroundColor3 = state and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+        btn.Text = state and "ON" or "OFF"
+    end)
+end
+
 local function addSliderBox(parent, text, configKey, step)
     step = step or 5
     local frame = Instance.new("Frame")
@@ -440,7 +479,6 @@ local function addSliderBox(parent, text, configKey, step)
     end)
 end
 
--- ФУНКЦИЯ ДОБАВЛЕНИЯ HEX ПОЛЯ ДЛЯ ЦВЕТА
 local function addHexColorInput(parent, labelText, configKey)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, -5, 0, 35)
@@ -480,7 +518,7 @@ local function addHexColorInput(parent, labelText, configKey)
             getgenv().TWKS_Config[configKey] = val
             box.Text = val
         else
-            box.Text = getgenv().TWKS_Config[configKey] -- возврат если неверный формат
+            box.Text = getgenv().TWKS_Config[configKey]
         end
     end)
 end
@@ -539,9 +577,25 @@ addPresetButton(TabRage, "Legit (1.25)", 1.25)
 addPresetButton(TabRage, "Rage (x3)", 3)
 addPresetButton(TabRage, "Sky (x100 / Стабильный)", 100)
 
+-- НАСТРОЙКИ В МИСКЕ (ВКЛЮЧАЯ ПЛАВАЮЩИЕ КНОПКИ)
 addToggle(TabMisc, "Mobile Center Clicker", "MobileButton")
 addSliderBox(TabMisc, "Click Offset X", "ClickOffsetX", 5)
 addSliderBox(TabMisc, "Click Offset Y", "ClickOffsetY", 5)
+
+local qbHeader = Instance.new("TextLabel")
+qbHeader.Size = UDim2.new(1, -5, 0, 25)
+qbHeader.BackgroundTransparency = 1
+qbHeader.Text = "--- Плавающие кнопки экрана ---"
+qbHeader.TextColor3 = Color3.fromRGB(180, 150, 255)
+qbHeader.Font = Enum.Font.GothamBold
+qbHeader.TextSize = 11
+qbHeader.Parent = TabMisc
+
+addQuickButtonToggle(TabMisc, "Плавающая кнопка: AIM", "Aimbot")
+addQuickButtonToggle(TabMisc, "Плавающая кнопка: TRIG", "Triggerbot")
+addQuickButtonToggle(TabMisc, "Плавающая кнопка: ESP", "ESP_Enabled")
+addQuickButtonToggle(TabMisc, "Плавающая кнопка: FLY", "CFly")
+addQuickButtonToggle(TabMisc, "Плавающая кнопка: HIT", "HitboxEnabled")
 
 -- ВКЛАДКА КОНФИГОВ С СТАТУСОМ
 local statusLbl = Instance.new("TextLabel")
@@ -671,7 +725,6 @@ CenterClickBtn.InputEnded:Connect(function(input)
     end
 end)
 
--- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ И ЛОГИКА
 local function getTargetCharacters()
     local characters = {}
     pcall(function()
@@ -775,7 +828,7 @@ local function removeCharESP(char)
     end
 end
 
--- ОСНОВНОЙ ЦИКЛ РАБОТЫ (RENDERSTEPPED)
+-- ОСНОВНОЙ ЦИКЛ РАБОТЫ
 RunService.RenderStepped:Connect(function()
     local cfg = getgenv().TWKS_Config
     local targetPart = getClosestEnemy()
@@ -837,7 +890,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- ОБНОВЛЕНИЕ ЧАМСОВ С HEX ЦВЕТОМ
     local currentChamsColor = hexToColor3(cfg.ChamsHex)
     for _, char in ipairs(targets) do
         pcall(function()
@@ -859,7 +911,6 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
-    -- ОБНОВЛЕНИЕ ХИТБОКСОВ
     for _, char in ipairs(targets) do
         pcall(function()
             local part = char:FindFirstChild(cfg.HitboxPart) or char:FindFirstChildOfClass("BasePart")
@@ -880,7 +931,6 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
-    -- ОБНОВЛЕНИЕ ESP С HEX ЦВЕТОМ
     local currentESPColor = hexToColor3(cfg.ESP_Hex)
     
     if not cfg.ESP_Enabled then
