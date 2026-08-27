@@ -1,8 +1,4 @@
-print("1. Скрипт начал скачиваться и запускаться")
-
-local success, err = pcall(function()
-    -- СЮДА ВСТАВЬ ВЕСЬ ТВОЙ ОСТАЛЬНОЙ КОД СКРИПТА
--- // TWKS - Murders vs Sheriffs Hub (Fixed Triggerbot Crosshair Check)
+-- // TWKS - Murders vs Sheriffs Hub (Fixed Triggerbot Crosshair Check & Syntax)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
@@ -40,7 +36,6 @@ getgenv().TWKS_Config = {
     CFly = false,
     CFlySpeed = 40,
     
-    -- Конфигурация: какие кнопки выводить на экран
     QuickButtons = {
         Aimbot = false,
         Triggerbot = false,
@@ -458,7 +453,6 @@ addToggle(TabMisc, "Mobile Center Clicker", "MobileButton")
 addSliderBox(TabMisc, "Click Offset X", "ClickOffsetX", 5)
 addSliderBox(TabMisc, "Click Offset Y", "ClickOffsetY", 5)
 
--- РАЗДЕЛ СПИСКА КНОПОК БЫСТРОГО ДОСТУПА В МИСКЕ
 local quickMenuTitle = Instance.new("TextLabel")
 quickMenuTitle.Size = UDim2.new(1, -5, 0, 22)
 quickMenuTitle.BackgroundTransparency = 1
@@ -512,7 +506,6 @@ addQuickButtonToggle(TabMisc, "Кнопка ESP", "ESP_Enabled")
 addQuickButtonToggle(TabMisc, "Кнопка C-Fly", "CFly")
 addQuickButtonToggle(TabMisc, "Кнопка Hitbox", "HitboxEnabled")
 
--- ГЕНЕРАЦИЯ ОТДЕЛЬНЫХ ПЛАВАЮЩИХ КНОПОК НА ЭКРАНЕ
 local activeFloatingButtons = {}
 
 local function createFloatingButton(name, text, startPosY, configKey)
@@ -548,7 +541,6 @@ createFloatingButton("ESPBtn", "ESP", 120, "ESP_Enabled")
 createFloatingButton("FlyBtn", "FLY", 180, "CFly")
 createFloatingButton("HitBtn", "HIT", 240, "HitboxEnabled")
 
--- Плавающая кнопка FIRE (с защитой от мультитача / чужих пальцев)
 local CenterClickBtn = Instance.new("TextButton")
 CenterClickBtn.Size = UDim2.new(0, 55, 0, 55)
 CenterClickBtn.Position = UDim2.new(0.85, -28, 0.7, -28)
@@ -578,7 +570,6 @@ local function performClick()
     end)
 end
 
--- Привязка через InputBegan/InputEnded для игнорирования сторонних касаний
 local activeTouchInput = nil
 
 CenterClickBtn.InputBegan:Connect(function(input)
@@ -594,7 +585,6 @@ CenterClickBtn.InputEnded:Connect(function(input)
     end
 end)
 
--- ОБНОВЛЕНИЕ СОСТОЯНИЯ ЭКРАННЫХ КНОПОК КАЖДЫЙ КАДР
 RunService.RenderStepped:Connect(function()
     local cfg = getgenv().TWKS_Config
     CenterClickBtn.Visible = cfg.MobileButton
@@ -605,9 +595,9 @@ RunService.RenderStepped:Connect(function()
             btnInstance.Visible = true
             local state = cfg[configKey]
             if state then
-                btnInstance.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Зеленый (ВКЛ)
+                btnInstance.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
             else
-                btnInstance.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Красный (ВЫКЛ)
+                btnInstance.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
             end
         else
             btnInstance.Visible = false
@@ -615,7 +605,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ПОИСК ЦЕЛЕЙ И ПРОВЕРКА КОМАНД СЕРВЕРА
 local function getTargetCharacters()
     local characters = {}
     pcall(function()
@@ -695,11 +684,10 @@ local function getClosestEnemy()
     return target
 end
 
--- ESP РИСУНКИ И ОЧИСТКА
+-- ИСПРАВЛЕННАЯ ФУНКЦИЯ ОЧИСТКИ ESP
 local espDrawings = {}
 
 local function clearESP()
-    local function clearESP()
     for _, drawings in pairs(espDrawings) do
         pcall(function()
             if drawings.Box then drawings.Box:Remove() end
@@ -721,7 +709,6 @@ local function removeCharESP(char)
     end
 end
 
--- ОСНОВНОЙ ЦИКЛ РАБОТЫ
 RunService.RenderStepped:Connect(function()
     local cfg = getgenv().TWKS_Config
     local targetPart = getClosestEnemy()
@@ -740,7 +727,6 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
-    -- ПРОВЕРКА НАВОДКИ ДЛЯ ТРИГГЕРА (Срабатывает только если прицел наведен на врага)
     if cfg.Triggerbot and targetPart then
         local success, screenPoint, onScreen = pcall(function()
             return CurrentCamera:WorldToViewportPoint(targetPart.Position)
@@ -750,9 +736,6 @@ RunService.RenderStepped:Connect(function()
             local viewport = CurrentCamera.ViewportSize
             local screenCenter = Vector2.new(viewport.X / 2, viewport.Y / 2)
             local targetScreenPos = Vector2.new(screenPoint.X, screenPoint.Y)
-            
-            -- Допустимый радиус наводки от центра экрана (в пикселях). 
-            -- Увеличен до 35 пикселей, чтобы триггер стабильно срабатывал при наведении на хитбокс
             local crosshairDistance = (screenCenter - targetScreenPos).Magnitude
             
             if crosshairDistance <= 35 then
@@ -878,11 +861,3 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
-end)
-
-if not success then
-    print("2. ОШИБКА В СКРИПТЕ: " .. tostring(err))
-    warn("Критическая ошибка скрипта: " .. tostring(err))
-else
-    print("3. Скрипт успешно отработал без ошибок!")
-end
