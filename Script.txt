@@ -1,3 +1,7 @@
+print("1. Скрипт начал скачиваться и запускаться")
+
+local success, err = pcall(function()
+    -- СЮДА ВСТАВЬ ВЕСЬ ТВОЙ ОСТАЛЬНОЙ КОД СКРИПТА
 -- // TWKS - Murders vs Sheriffs Hub (Fixed Triggerbot Crosshair Check)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -874,3 +878,11 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
+end)
+
+if not success then
+    print("2. ОШИБКА В СКРИПТЕ: " .. tostring(err))
+    warn("Критическая ошибка скрипта: " .. tostring(err))
+else
+    print("3. Скрипт успешно отработал без ошибок!")
+end
