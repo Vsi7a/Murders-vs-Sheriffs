@@ -1,4 +1,4 @@
--- // TWKS Hub - Murders vs Sheriffs (Mobile Edition with Config & Custom Colors)
+-- // TWKS Hub - Murders vs Sheriffs (Mobile Edition with HEX Colors & Configs)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
@@ -20,17 +20,13 @@ getgenv().TWKS_Config = {
     Box2D = false,
     Lines = false,
     Names = false,
-    ESP_ColorR = 1,
-    ESP_ColorG = 1,
-    ESP_ColorB = 1,
+    ESP_Hex = "#FFFFFF",
     
     OffsetX = 0,
     OffsetY = 0,
     
     Chams = false,
-    ChamsColorR = 1,
-    ChamsColorG = 0,
-    ChamsColorB = 0,
+    ChamsHex = "#FF0000",
     ChamsTransparency = 0.5,
     
     MobileButton = false,
@@ -53,41 +49,46 @@ getgenv().TWKS_Config = {
     }
 }
 
+-- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ КОНВЕРТАЦИИ HEX В COLOR3
+local function hexToColor3(hex)
+    hex = hex:gsub("#", "")
+    if #hex ~= 6 then return Color3.new(1, 1, 1) end
+    local r = tonumber("0x" .. hex:sub(1, 2)) or 255
+    local g = tonumber("0x" .. hex:sub(3, 4)) or 255
+    local b = tonumber("0x" .. hex:sub(5, 6)) or 255
+    return Color3.fromRGB(r, g, b)
+end
+
 -- СИСТЕМА КОНФИГОВ (SAVE / LOAD)
+local configFileName = "TWKS_Config.json"
+
 local function saveConfig()
-    pcall(function()
-        local cfg = getgenv().TWKS_Config
-        local data = {
-            Sensitivity = cfg.Sensitivity,
-            ESP_ColorR = cfg.ESP_ColorR,
-            ESP_ColorG = cfg.ESP_ColorG,
-            ESP_ColorB = cfg.ESP_ColorB,
-            ChamsColorR = cfg.ChamsColorR,
-            ChamsColorG = cfg.ChamsColorG,
-            ChamsColorB = cfg.ChamsColorB,
-            ChamsTransparency = cfg.ChamsTransparency,
-            HitboxSize = cfg.HitboxSize,
-            CFlySpeed = cfg.CFlySpeed
-        }
+    local success, err = pcall(function()
+        local data = HttpService:JSONEncode(getgenv().TWKS_Config)
         if writefile then
-            writefile("TWKS_Config.json", HttpService:JSONEncode(data))
+            writefile(configFileName, data)
         end
     end)
+    if not success then
+        warn("Ошибка сохранения конфига: " .. tostring(err))
+    end
 end
 
 local function loadConfig()
-    pcall(function()
-        if isfile and isfile("TWKS_Config.json") then
-            local content = readfile("TWKS_Config.json")
+    local success, err = pcall(function()
+        if isfile and isfile(configFileName) then
+            local content = readfile(configFileName)
             local data = HttpService:JSONDecode(content)
-            if data then
-                local cfg = getgenv().TWKS_Config
+            if data and type(data) == "table" then
                 for k, v in pairs(data) do
-                    cfg[k] = v
+                    getgenv().TWKS_Config[k] = v
                 end
             end
         end
     end)
+    if not success then
+        warn("Ошибка загрузки конфига: " .. tostring(err))
+    end
 end
 
 loadConfig()
@@ -241,7 +242,7 @@ MainCorner.Parent = MainFrame
 local Header = Instance.new("TextLabel")
 Header.Size = UDim2.new(1, -40, 0, 30)
 Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-Header.Text = "  TWKS Hub | Murders vs Sheriffs (Mobile)"
+Header.Text = "  TWKS Hub | Configs & HEX Colors"
 Header.TextColor3 = Color3.fromRGB(255, 255, 255)
 Header.Font = Enum.Font.GothamBold
 Header.TextSize = 13
@@ -439,6 +440,51 @@ local function addSliderBox(parent, text, configKey, step)
     end)
 end
 
+-- ФУНКЦИЯ ДОБАВЛЕНИЯ HEX ПОЛЯ ДЛЯ ЦВЕТА
+local function addHexColorInput(parent, labelText, configKey)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -5, 0, 35)
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
+    
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.45, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = labelText
+    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextSize = 11
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = frame
+    
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0.5, 0, 0, 26)
+    box.Position = UDim2.new(0.48, 0, 0.1, 0)
+    box.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    box.Text = tostring(getgenv().TWKS_Config[configKey])
+    box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 12
+    box.Parent = frame
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 4)
+    c.Parent = box
+    
+    box.FocusLost:Connect(function(enterPressed)
+        local val = box.Text
+        if not val:match("^#") then
+            val = "#" .. val
+        end
+        if #val == 7 then
+            getgenv().TWKS_Config[configKey] = val
+            box.Text = val
+        else
+            box.Text = getgenv().TWKS_Config[configKey] -- возврат если неверный формат
+        end
+    end)
+end
+
 local function addPresetButton(parent, text, multiplier)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -5, 0, 28)
@@ -467,54 +513,12 @@ addToggle(TabVisuals, "ESP Enabled", "ESP_Enabled")
 addToggle(TabVisuals, "2D Box", "Box2D")
 addToggle(TabVisuals, "Line (Tracer)", "Lines")
 addToggle(TabVisuals, "Nickname", "Names")
+addHexColorInput(TabVisuals, "ESP HEX Color", "ESP_Hex")
 addSliderBox(TabVisuals, "ESP Offset X", "OffsetX", 5)
 addSliderBox(TabVisuals, "ESP Offset Y", "OffsetY", 5)
 
--- КНОПКИ СМЕНЫ ЦВЕТА ESP
-local espColorTitle = Instance.new("TextLabel")
-espColorTitle.Size = UDim2.new(1, -5, 0, 20)
-espColorTitle.BackgroundTransparency = 1
-espColorTitle.Text = "--- Цвет ESP ---"
-espColorTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
-espColorTitle.Font = Enum.Font.GothamBold
-espColorTitle.TextSize = 11
-espColorTitle.Parent = TabVisuals
-
-local function addColorPreset(parent, name, r, g, b, isChams)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -5, 0, 24)
-    btn.BackgroundColor3 = Color3.new(r, g, b)
-    btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 11
-    btn.Parent = parent
-    
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 4)
-    c.Parent = btn
-    
-    btn.MouseButton1Click:Connect(function()
-        if isChams then
-            getgenv().TWKS_Config.ChamsColorR = r
-            getgenv().TWKS_Config.ChamsColorG = g
-            getgenv().TWKS_Config.ChamsColorB = b
-        else
-            getgenv().TWKS_Config.ESP_ColorR = r
-            getgenv().TWKS_Config.ESP_ColorG = g
-            getgenv().TWKS_Config.ESP_ColorB = b
-        end
-    end)
-end
-
-addColorPreset(TabVisuals, "ESP Белый", 1, 1, 1, false)
-addColorPreset(TabVisuals, "ESP Зеленый", 0, 1, 0, false)
-addColorPreset(TabVisuals, "ESP Красный", 1, 0, 0, false)
-
 addToggle(TabChams, "Chams Enabled", "Chams")
-addColorPreset(TabChams, "Чамс Красный", 1, 0, 0, true)
-addColorPreset(TabChams, "Чамс Синий", 0, 0.5, 1, true)
-addColorPreset(TabChams, "Чамс Фиолетовый", 0.6, 0, 1, true)
+addHexColorInput(TabChams, "Chams HEX Color", "ChamsHex")
 
 addToggle(TabRage, "Triggerbot (Auto-Fire)", "Triggerbot")
 addToggle(TabRage, "C-Fly (Desync Fly)", "CFly")
@@ -539,7 +543,16 @@ addToggle(TabMisc, "Mobile Center Clicker", "MobileButton")
 addSliderBox(TabMisc, "Click Offset X", "ClickOffsetX", 5)
 addSliderBox(TabMisc, "Click Offset Y", "ClickOffsetY", 5)
 
--- КНОПКИ КОНФИГОВ
+-- ВКЛАДКА КОНФИГОВ С СТАТУСОМ
+local statusLbl = Instance.new("TextLabel")
+statusLbl.Size = UDim2.new(1, -5, 0, 25)
+statusLbl.BackgroundTransparency = 1
+statusLbl.Text = "Статус: Ожидание действия"
+statusLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+statusLbl.Font = Enum.Font.Gotham
+statusLbl.TextSize = 11
+statusLbl.Parent = TabConfig
+
 local saveBtn = Instance.new("TextButton")
 saveBtn.Size = UDim2.new(1, -5, 0, 35)
 saveBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
@@ -555,6 +568,8 @@ sCorner.Parent = saveBtn
 
 saveBtn.MouseButton1Click:Connect(function()
     saveConfig()
+    statusLbl.Text = "Статус: Конфиг сохранен!"
+    statusLbl.TextColor3 = Color3.fromRGB(50, 255, 50)
 end)
 
 local loadBtn = Instance.new("TextButton")
@@ -572,6 +587,8 @@ lCorner.Parent = loadBtn
 
 loadBtn.MouseButton1Click:Connect(function()
     loadConfig()
+    statusLbl.Text = "Статус: Конфиг загружен!"
+    statusLbl.TextColor3 = Color3.fromRGB(50, 200, 255)
 end)
 
 -- ПЛАВАЮЩИЕ КНОПКИ
@@ -820,7 +837,8 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- ОБНОВЛЕНИЕ ЧАМСОВ С КАСТОМНЫМ ЦВЕТОМ
+    -- ОБНОВЛЕНИЕ ЧАМСОВ С HEX ЦВЕТОМ
+    local currentChamsColor = hexToColor3(cfg.ChamsHex)
     for _, char in ipairs(targets) do
         pcall(function()
             if cfg.Chams then
@@ -833,7 +851,7 @@ RunService.RenderStepped:Connect(function()
                     highlight.FillTransparency = cfg.ChamsTransparency
                     highlight.Parent = char
                 end
-                highlight.FillColor = Color3.new(cfg.ChamsColorR, cfg.ChamsColorG, cfg.ChamsColorB)
+                highlight.FillColor = currentChamsColor
             else
                 local highlight = char:FindFirstChild("TWKS_Chams")
                 if highlight then highlight:Destroy() end
@@ -862,8 +880,8 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
-    -- ОБНОВЛЕНИЕ ESP С КАСТОМНЫМ ЦВЕТОМ
-    local currentESPColor = Color3.new(cfg.ESP_ColorR, cfg.ESP_ColorG, cfg.ESP_ColorB)
+    -- ОБНОВЛЕНИЕ ESP С HEX ЦВЕТОМ
+    local currentESPColor = hexToColor3(cfg.ESP_Hex)
     
     if not cfg.ESP_Enabled then
         clearESP()
@@ -892,7 +910,6 @@ RunService.RenderStepped:Connect(function()
                     
                     local d = espDrawings[char]
                     
-                    -- Применяем цвета на лету
                     d.Box.Color = currentESPColor
                     d.Line.Color = currentESPColor
                     d.Name.Color = currentESPColor
