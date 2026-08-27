@@ -82,7 +82,6 @@ local function saveConfig()
         -- Сохраняем актуальные позиции кнопок перед сериализацией
         for k, btn in pairs(activeFloatingButtons) do
             if btn and btn.AbsolutePosition then
-                -- Сохраняем UDim2 позицию
                 getgenv().TWKS_Config.ButtonPositions[k] = {btn.Position.X.Scale, btn.Position.X.Offset, btn.Position.Y.Scale, btn.Position.Y.Offset}
             end
         end
@@ -107,7 +106,6 @@ local function loadConfig()
                     if k == "ButtonPositions" and type(v) == "table" then
                         for bpKey, bpVal in pairs(v) do
                             getgenv().TWKS_Config.ButtonPositions[bpKey] = bpVal
-                            -- Если кнопка уже создана, сразу применяем позицию
                             if bpKey == "FlyUp" and FlyUpBtn then
                                 FlyUpBtn.Position = UDim2.new(bpVal[1], bpVal[2], bpVal[3], bpVal[4])
                             elseif bpKey == "FlyDown" and FlyDownBtn then
@@ -163,7 +161,7 @@ if not successGui or not ScreenGui then
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- МОБИЛЬНЫЕ КНОПКИ C-FLY (с поддержкой сохранения позиций)
+-- МОБИЛЬНЫЕ КНОПКИ C-FLY
 FlyUpBtn = Instance.new("TextButton")
 local savedFlyUp = getgenv().TWKS_Config.ButtonPositions.FlyUp
 FlyUpBtn.Size = UDim2.new(0, 50, 0, 50)
@@ -224,7 +222,6 @@ local function toggleCFly(state)
     
     if state then
         workspace.Gravity = 0
-        -- Убран PlatformStand (ноуклип), чтобы персонаж не падал сквозь стены и античит не кикал/убивал
         storedCFlyCFrame = rootPart.CFrame
         
         cflyConnection = RunService.RenderStepped:Connect(function(dt)
@@ -787,7 +784,7 @@ local function isEnemy(playerModel)
     local targetPlayer = Players:GetPlayerFromCharacter(playerModel)
     if targetPlayer then
         local myTeam = cachedTeams[LocalPlayer.UserId]
-        let targetTeam = cachedTeams[targetPlayer.UserId]
+        local targetTeam = cachedTeams[targetPlayer.UserId] -- Исправлено: заменено let на local
         
         if myTeam and targetTeam then
             if myTeam == targetTeam then return false else return true end
@@ -799,7 +796,7 @@ end
 
 -- ФУНКЦИИ ПРОВЕРКИ ВИДИМОСТИ И ВАЛШОТА
 local function isVisibleForAimbot(targetPart)
-    if getgenv().TWKS_Config.WallShot then return true end -- Если включен WallShot, игнорируем преграды
+    if getgenv().TWKS_Config.WallShot then return true end
     if not getgenv().TWKS_Config.AimbotWallCheck then return true end
     
     local myChar = LocalPlayer.Character
@@ -820,7 +817,7 @@ local function isVisibleForAimbot(targetPart)
 end
 
 local function isVisibleForTrigger(targetPart)
-    if getgenv().TWKS_Config.WallShot then return true end -- Если включен WallShot, пробиваем стены
+    if getgenv().TWKS_Config.WallShot then return true end
     if not getgenv().TWKS_Config.TriggerWallCheck then return true end
     
     local myChar = LocalPlayer.Character
@@ -944,8 +941,6 @@ RunService.RenderStepped:Connect(function()
                         local crosshairDistance = (screenCenter - targetScreenPos).Magnitude
                         
                         if crosshairDistance <= 35 then
-                            -- Экспериментальный WallShot: если включен WallShot и цель скрыта стеной,
-                            -- временно вытягиваем хитбокс ближе к игроку/наружу перед кликом
                             if cfg.WallShot then
                                 pcall(function()
                                     trigPart.CanCollide = false
@@ -980,21 +975,16 @@ RunService.RenderStepped:Connect(function()
     local currentChamsColor = hexToColor3(cfg.ChamsHex)
     for _, char in ipairs(targets) do
         pcall(function()
-            if cfg.Chams then
-                local highlight = char:FindFirstChild("TWKS_Chams")
-                if not highlight then
-                    highlight = Instance.new("Highlight")
-                    highlight.Name = "TWKS_Chams"
-                    highlight.Adornee = char
-                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    highlight.FillTransparency = cfg.ChamsTransparency
-                    highlight.Parent = char
-                end
-                highlight.FillColor = currentChamsColor
-            else
-                local highlight = char:FindFirstChild("TWKS_Chams")
-                if highlight then highlight:Destroy() end
+            local highlight = char:FindFirstChild("TWKS_Chams")
+            if not highlight then
+                highlight = Instance.new("Highlight")
+                highlight.Name = "TWKS_Chams"
+                highlight.Adornee = char
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                highlight.FillTransparency = cfg.ChamsTransparency
+                highlight.Parent = char
             end
+            highlight.FillColor = currentChamsColor
         end)
     end
     
