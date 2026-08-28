@@ -1,4 +1,4 @@
--- // TWKS Hub - Bhop with Velocity Ramp & Anti-Aim
+-- // TWKS Hub - Remastered UI & Advanced Features
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
@@ -7,71 +7,83 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local CurrentCamera = workspace.CurrentCamera
 
--- КОНФИГУРАЦИЯ
+-- БАЗОВАЯ КОНФИГУРАЦИЯ
 getgenv().TWKS_Config = {
+    -- Weapon
     Aimbot = false,
     AimPart = "HumanoidRootPart",
     Sensitivity = 0.3,
     AimbotWallCheck = true,
     
     Triggerbot = false,
+    TriggerDelay = 50, -- в миллисекундах
     TriggerWallCheck = true,
     
-    -- Настройки Бхопа и Анти-аима
-    Bunnyhop = false,
-    BhopSpeedGain = 1.2, -- Множитель ускорения при прыжке
-    AntiAim = false,
-    AntiAimMode = "Spin",
-    
+    -- Visuals (ESP & Chams с динамической подсветкой видимости)
     ESP_Enabled = false,
-    Box2D = false,
+    Box2D = true,
     Lines = false,
-    Names = false,
-    ESP_Hex = "#FFFFFF",
-    
-    OffsetX = 0,
-    OffsetY = 0,
+    Names = true,
+    ESP_VisibleHex = "#00FF00",
+    ESP_HiddenHex = "#FF0000",
     
     Chams = false,
-    ChamsHex = "#FF0000",
+    ChamsVisibleHex = "#00FF00",
+    ChamsHiddenHex = "#FF0000",
     ChamsTransparency = 0.5,
     
-    MobileButton = false,
-    ClickOffsetX = 50,
+    -- Movement
+    Fly = false,
+    FlySpeed = 50,
+    CFly = false,
+    CFlySpeed = 50,
+    
+    SpeedHack = false,
+    SpeedValue = 24,
+    
+    JumpHack = false,
+    JumpPower = 75,
+    
+    Bunnyhop = false,
+    BhopSpeedGain = 1.2,
+    
+    SpinBot = false,
+    SpinSpeed = 200,
+    
+    -- Misc
+    CenterClickEnabled = false,
+    ClickOffsetX = 0,
     ClickOffsetY = 0,
     
-    HitboxEnabled = false,
-    HitboxSize = 1,
-    HitboxPart = "HumanoidRootPart",
-    
-    CFly = false,
-    CFlySpeed = 40,
-    
-    QuickButtons = {
+    FloatingButtons = {
         Aimbot = false,
         Triggerbot = false,
-        ESP_Enabled = false,
+        ESP = false,
+        Chams = false,
+        Fly = false,
         CFly = false,
-        HitboxEnabled = false,
-        Bunnyhop = false,
-        AntiAim = false
+        SpeedHack = false,
+        JumpHack = false,
+        BunnyHop = false,
+        SpinBot = false
     },
     
-    -- Исправленные позиции плавающих кнопок (без наложений и ухода за экран)
     ButtonPositions = {
         Aimbot = {0.03, 0, 0.15, 0},
-        Triggerbot = {0.03, 0, 0.15, 60},
-        ESP_Enabled = {0.03, 0, 0.15, 120},
-        CFly = {0.03, 0, 0.15, 180},
-        HitboxEnabled = {0.03, 0, 0.15, 240},
-        Bunnyhop = {0.03, 0, 0.15, 300},
-        AntiAim = {0.03, 0, 0.15, 360},
+        Triggerbot = {0.03, 0, 0.15, 55},
+        ESP = {0.03, 0, 0.15, 110},
+        Chams = {0.03, 0, 0.15, 165},
+        Fly = {0.03, 0, 0.15, 220},
+        CFly = {0.03, 0, 0.15, 275},
+        SpeedHack = {0.03, 0, 0.15, 330},
+        JumpHack = {0.03, 0, 0.15, 385},
+        BunnyHop = {0.03, 0, 0.15, 440},
+        SpinBot = {0.03, 0, 0.15, 495},
         FlyUp = {0.9, -60, 0.4, 0},
         FlyDown = {0.9, -60, 0.4, 60}
     }
 }
 
--- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ КОНВЕРТАЦИИ HEX В COLOR3
 local function hexToColor3(hex)
     hex = hex:gsub("#", "")
     if #hex ~= 6 then return Color3.new(1, 1, 1) end
@@ -81,8 +93,7 @@ local function hexToColor3(hex)
     return Color3.fromRGB(r, g, b)
 end
 
--- СИСТЕМА КОНФИГОВ (SAVE / LOAD)
-local configFileName = "TWKS_Config.json"
+local configFileName = "TWKS_NewConfig.json"
 local activeFloatingButtons = {}
 
 local function saveConfig()
@@ -104,33 +115,18 @@ local function loadConfig()
             local data = HttpService:JSONDecode(content)
             if data and type(data) == "table" then
                 for k, v in pairs(data) do
-                    if k == "ButtonPositions" and type(v) == "table" then
-                        for bpKey, bpVal in pairs(v) do
-                            getgenv().TWKS_Config.ButtonPositions[bpKey] = bpVal
-                            if bpKey == "FlyUp" and FlyUpBtn then
-                                FlyUpBtn.Position = UDim2.new(bpVal[1], bpVal[2], bpVal[3], bpVal[4])
-                            elseif bpKey == "FlyDown" and FlyDownBtn then
-                                FlyDownBtn.Position = UDim2.new(bpVal[1], bpVal[2], bpVal[3], bpVal[4])
-                            elseif activeFloatingButtons[bpKey] then
-                                activeFloatingButtons[bpKey].Position = UDim2.new(bpVal[1], bpVal[2], bpVal[3], bpVal[4])
-                            end
-                        end
-                    else
-                        getgenv().TWKS_Config[k] = v
-                    end
+                    getgenv().TWKS_Config[k] = v
                 end
             end
         end
     end)
 end
+loadConfig()
 
-local originalSizes = {}
 local cachedTeams = {}
-local originalWalkSpeed = 16
-
 pcall(function()
-    local matchStartedEvent = game:GetService("ReplicatedStorage"):WaitForChild("Match"):WaitForChild("OnMatchStarted")
-    matchStartedEvent.OnClientEvent:Connect(function(matchId, mode, playerData, mapName)
+    local matchStartedEvent = game:GetService("ReplicatedStorage"):WaitForChild("Match", 2):WaitForChild("OnMatchStarted", 2)
+    matchStartedEvent.OnClientEvent:Connect(function(matchId, mode, playerData)
         cachedTeams = {}
         if type(playerData) == "table" then
             for _, data in pairs(playerData) do
@@ -142,26 +138,16 @@ pcall(function()
     end)
 end)
 
--- СОЗДАНИЕ GUI
-local successGui, ScreenGui = pcall(function()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "TWKS_Hub"
-    gui.ResetOnSpawn = false
-    gui.DisplayOrder = 999999
-    gui.Parent = CoreGui
-    return gui
-end)
+-- СОЗДАНИЕ ГЛАВНОГО GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TWKS_Hub_Remastered"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999999
+pcall(function() ScreenGui.Parent = CoreGui end)
+if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
-if not successGui or not ScreenGui then
-    ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "TWKS_Hub"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.DisplayOrder = 999999
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
-
--- МОБИЛЬНЫЕ КНОПКИ C-FLY
-FlyUpBtn = Instance.new("TextButton")
+-- Мобильные кнопки для Fly
+local FlyUpBtn = Instance.new("TextButton")
 local savedFlyUp = getgenv().TWKS_Config.ButtonPositions.FlyUp
 FlyUpBtn.Size = UDim2.new(0, 50, 0, 50)
 FlyUpBtn.Position = savedFlyUp and UDim2.new(savedFlyUp[1], savedFlyUp[2], savedFlyUp[3], savedFlyUp[4]) or UDim2.new(0.9, -60, 0.4, 0)
@@ -174,12 +160,9 @@ FlyUpBtn.Visible = false
 FlyUpBtn.Active = true
 FlyUpBtn.Draggable = true
 FlyUpBtn.Parent = ScreenGui
+Instance.new("UICorner", FlyUpBtn).CornerRadius = UDim.new(1, 0)
 
-local FlyUpCorner = Instance.new("UICorner")
-FlyUpCorner.CornerRadius = UDim.new(1, 0)
-FlyUpCorner.Parent = FlyUpBtn
-
-FlyDownBtn = Instance.new("TextButton")
+local FlyDownBtn = Instance.new("TextButton")
 local savedFlyDown = getgenv().TWKS_Config.ButtonPositions.FlyDown
 FlyDownBtn.Size = UDim2.new(0, 50, 0, 50)
 FlyDownBtn.Position = savedFlyDown and UDim2.new(savedFlyDown[1], savedFlyDown[2], savedFlyDown[3], savedFlyDown[4]) or UDim2.new(0.9, -60, 0.4, 60)
@@ -192,113 +175,46 @@ FlyDownBtn.Visible = false
 FlyDownBtn.Active = true
 FlyDownBtn.Draggable = true
 FlyDownBtn.Parent = ScreenGui
+Instance.new("UICorner", FlyDownBtn).CornerRadius = UDim.new(1, 0)
 
-local FlyDownCorner = Instance.new("UICorner")
-FlyDownCorner.CornerRadius = UDim.new(1, 0)
-FlyDownCorner.Parent = FlyDownBtn
-
-local isFlyingUp = false
-local isFlyingDown = false
-
+local isFlyingUp, isFlyingDown = false, false
 FlyUpBtn.MouseButton1Down:Connect(function() isFlyingUp = true end)
 FlyUpBtn.MouseButton1Up:Connect(function() isFlyingUp = false end)
 FlyDownBtn.MouseButton1Down:Connect(function() isFlyingDown = true end)
 FlyDownBtn.MouseButton1Up:Connect(function() isFlyingDown = false end)
 
-local cflyConnection
-local originalGravity = workspace.Gravity
-local storedCFlyCFrame = nil
-
-local function toggleCFly(state)
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChildOfClass("Humanoid") then return end
-    
-    local rootPart = char.HumanoidRootPart
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    
-    FlyUpBtn.Visible = state
-    FlyDownBtn.Visible = state
-    
-    if state then
-        workspace.Gravity = 0
-        storedCFlyCFrame = rootPart.CFrame
-        
-        cflyConnection = RunService.RenderStepped:Connect(function(dt)
-            if not getgenv().TWKS_Config.CFly then return end
-            
-            local cam = CurrentCamera
-            local moveDir = Vector3.new(0, 0, 0)
-            local moveVector = humanoid.MoveDirection
-            
-            if moveVector.Magnitude > 0 then
-                local camLook = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z).Unit
-                local camRight = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z).Unit
-                moveDir = (camLook * moveVector.Z) + (camRight * moveVector.X)
-            end
-            
-            if isFlyingUp then moveDir = moveDir + Vector3.new(0, 1, 0) end
-            if isFlyingDown then moveDir = moveDir - Vector3.new(0, 1, 0) end
-            
-            if moveDir.Magnitude > 0 then
-                storedCFlyCFrame = storedCFlyCFrame + (moveDir.Unit * getgenv().TWKS_Config.CFlySpeed * dt)
-            end
-            
-            rootPart.CFrame = storedCFlyCFrame
-            rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-        end)
-    else
-        if cflyConnection then
-            cflyConnection:Disconnect()
-            cflyConnection = nil
-        end
-        workspace.Gravity = originalGravity
-        storedCFlyCFrame = nil
-        isFlyingUp = false
-        isFlyingDown = false
-    end
-end
-
 -- ГЛАВНОЕ ОКНО
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 420, 0, 310)
-MainFrame.Position = UDim2.new(0.5, -210, 0.5, -155)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Size = UDim2.new(0, 480, 0, 360)
+MainFrame.Position = UDim2.new(0.5, -240, 0.5, -180)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
-
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 8)
-MainCorner.Parent = MainFrame
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
 local Header = Instance.new("TextLabel")
-Header.Size = UDim2.new(1, -40, 0, 30)
-Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-Header.Text = "  TWKS Hub | Bhop Momentum"
+Header.Size = UDim2.new(1, -40, 0, 35)
+Header.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Header.Text = "  TWKS Hub | Ultimate Mod Menu"
 Header.TextColor3 = Color3.fromRGB(255, 255, 255)
 Header.Font = Enum.Font.GothamBold
 Header.TextSize = 13
 Header.TextXAlignment = Enum.TextXAlignment.Left
 Header.Parent = MainFrame
-
-local HCorner = Instance.new("UICorner")
-HCorner.CornerRadius = UDim.new(0, 8)
-HCorner.Parent = Header
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.Size = UDim2.new(0, 35, 0, 35)
+CloseBtn.Position = UDim2.new(1, -35, 0, 0)
 CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 CloseBtn.Text = "X"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.TextSize = 13
 CloseBtn.Parent = MainFrame
-
-local CBCorner = Instance.new("UICorner")
-CBCorner.CornerRadius = UDim.new(0, 8)
-CBCorner.Parent = CloseBtn
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
 
 local ToggleMenuBtn = Instance.new("TextButton")
 ToggleMenuBtn.Size = UDim2.new(0, 45, 0, 45)
@@ -308,114 +224,150 @@ ToggleMenuBtn.Text = "TWKS"
 ToggleMenuBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleMenuBtn.Font = Enum.Font.GothamBold
 ToggleMenuBtn.TextSize = 11
+ToggleMenuBtn.Visible = false
 ToggleMenuBtn.Active = true
 ToggleMenuBtn.Draggable = true
-ToggleMenuBtn.Visible = false
 ToggleMenuBtn.Parent = ScreenGui
-
-local TBtnCorner = Instance.new("UICorner")
-TBtnCorner.CornerRadius = UDim.new(1, 0)
-TBtnCorner.Parent = ToggleMenuBtn
+Instance.new("UICorner", ToggleMenuBtn).CornerRadius = UDim.new(1, 0)
 
 CloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
     ToggleMenuBtn.Visible = true
 end)
-
 ToggleMenuBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = true
     ToggleMenuBtn.Visible = false
 end)
 
-local TabsHolder = Instance.new("ScrollingFrame")
-TabsHolder.Size = UDim2.new(0, 100, 1, -35)
-TabsHolder.Position = UDim2.new(0, 0, 0, 30)
-TabsHolder.BackgroundTransparency = 1
-TabsHolder.CanvasSize = UDim2.new(0, 0, 0, 250)
-TabsHolder.ScrollBarThickness = 2
+-- ВКЛАДКИ
+local TabsHolder = Instance.new("Frame")
+TabsHolder.Size = UDim2.new(1, 0, 0, 32)
+TabsHolder.Position = UDim2.new(0, 0, 0, 35)
+TabsHolder.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 TabsHolder.Parent = MainFrame
 
-local ContainerHolder = Instance.new("Folder")
-ContainerHolder.Name = "Containers"
-ContainerHolder.Parent = MainFrame
+local UIListTabs = Instance.new("UIListLayout")
+UIListTabs.FillDirection = Enum.FillDirection.Horizontal
+UIListTabs.SortOrder = Enum.SortOrder.LayoutOrder
+UIListTabs.Parent = TabsHolder
 
-local function createTab(name, posY)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -5, 0, 30)
-    btn.Position = UDim2.new(0, 0, 0, posY)
-    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamMedium
-    btn.TextSize = 12
-    btn.Parent = TabsHolder
-    
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 6)
-    c.Parent = btn
+local ContainersHolder = Instance.new("Folder")
+ContainersHolder.Parent = MainFrame
+
+local function createMainTab(name)
+    local tabBtn = Instance.new("TextButton")
+    tabBtn.Size = UDim2.new(0.25, 0, 1, 0)
+    tabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    tabBtn.Text = name
+    tabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    tabBtn.Font = Enum.Font.GothamBold
+    tabBtn.TextSize = 12
+    tabBtn.Parent = TabsHolder
     
     local container = Instance.new("ScrollingFrame")
-    container.Size = UDim2.new(1, -110, 1, -35)
-    container.Position = UDim2.new(0, 105, 0, 32)
+    container.Size = UDim2.new(1, -10, 1, -75)
+    container.Position = UDim2.new(0, 5, 0, 72)
     container.BackgroundTransparency = 1
-    container.CanvasSize = UDim2.new(0, 0, 0, 1050)
+    container.CanvasSize = UDim2.new(0, 0, 0, 1200)
     container.ScrollBarThickness = 4
     container.Visible = false
-    container.Parent = ContainerHolder
+    container.Parent = ContainersHolder
     
-    local uiList = Instance.new("UIListLayout")
-    uiList.SortOrder = Enum.SortOrder.LayoutOrder
-    uiList.Padding = UDim.new(0, 5)
-    uiList.Parent = container
+    local list = Instance.new("UIListLayout")
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0, 6)
+    list.Parent = container
     
-    btn.MouseButton1Click:Connect(function()
-        for _, v in ipairs(ContainerHolder:GetChildren()) do
-            v.Visible = false
-        end
+    tabBtn.MouseButton1Click:Connect(function()
+        for _, c in ipairs(ContainersHolder:GetChildren()) do c.Visible = false end
         container.Visible = true
     end)
     
     return container
 end
 
-local TabAimbot = createTab("Aimbot", 0)
-local TabVisuals = createTab("Visuals", 35)
-local TabChams = createTab("Chams", 70)
-local TabRage = createTab("Rage", 105)
-local TabMisc = createTab("Misc", 140)
-local TabConfig = createTab("Configs", 175)
+local TabWeapon = createMainTab("Weapon")
+local TabVisuals = createMainTab("Visuals")
+local TabMovement = createMainTab("Movement")
+local TabMisc = createMainTab("Misc")
+TabWeapon.Visible = true
 
-TabAimbot.Visible = true
+-- КОМПОНЕНТЫ ИНТЕРФЕЙСА
+local function addDropdownSection(parent, titleText)
+    local sectionFrame = Instance.new("Frame")
+    sectionFrame.Size = UDim2.new(1, -5, 0, 35)
+    sectionFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    sectionFrame.Parent = parent
+    Instance.new("UICorner", sectionFrame).CornerRadius = UDim.new(0, 6)
+    
+    local dropBtn = Instance.new("TextButton")
+    dropBtn.Size = UDim2.new(1, 0, 0, 35)
+    dropBtn.BackgroundTransparency = 1
+    dropBtn.Text = "  ▼  " .. titleText
+    dropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dropBtn.Font = Enum.Font.GothamBold
+    dropBtn.TextSize = 12
+    dropBtn.TextXAlignment = Enum.TextXAlignment.Left
+    dropBtn.Parent = sectionFrame
+    
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Size = UDim2.new(1, 0, 0, 0)
+    contentFrame.Position = UDim2.new(0, 0, 0, 35)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Visible = false
+    contentFrame.Parent = sectionFrame
+    
+    local list = Instance.new("UIListLayout")
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0, 5)
+    list.Parent = contentFrame
+    
+    local isOpen = false
+    dropBtn.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        contentFrame.Visible = isOpen
+        if isOpen then
+            dropBtn.Text = "  ▲  " .. titleText
+            -- Динамический расчет высоты контента
+            local count = #contentFrame:GetChildren() - 1
+            contentFrame.Size = UDim2.new(1, 0, 0, count * 34)
+            sectionFrame.Size = UDim2.new(1, -5, 0, 35 + (count * 34))
+        else
+            dropBtn.Text = "  ▼  " .. titleText
+            contentFrame.Size = UDim2.new(1, 0, 0, 0)
+            sectionFrame.Size = UDim2.new(1, -5, 0, 35)
+        end
+    end)
+    
+    return contentFrame
+end
 
 local function addToggle(parent, text, configKey)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -5, 0, 28)
+    frame.Size = UDim2.new(1, 0, 0, 30)
     frame.BackgroundTransparency = 1
     frame.Parent = parent
     
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(0.65, 0, 1, 0)
     lbl.BackgroundTransparency = 1
-    lbl.Text = text
+    lbl.Text = "   " .. text
     lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
     lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 12
+    lbl.TextSize = 11
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = frame
     
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 45, 0, 22)
-    btn.Position = UDim2.new(0.7, 0, 0, 3)
+    btn.Size = UDim2.new(0, 45, 0, 24)
+    btn.Position = UDim2.new(0.72, 0, 0, 3)
     btn.BackgroundColor3 = getgenv().TWKS_Config[configKey] and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
     btn.Text = getgenv().TWKS_Config[configKey] and "ON" or "OFF"
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 11
     btn.Parent = frame
-    
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 4)
-    c.Parent = btn
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
     
     btn.MouseButton1Click:Connect(function()
         getgenv().TWKS_Config[configKey] = not getgenv().TWKS_Config[configKey]
@@ -425,121 +377,79 @@ local function addToggle(parent, text, configKey)
     end)
 end
 
-local function addQuickButtonToggle(parent, text, configKey)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -5, 0, 28)
-    frame.BackgroundTransparency = 1
-    frame.Parent = parent
-    
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(0.65, 0, 1, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(200, 180, 255)
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 11
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = frame
-    
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 45, 0, 22)
-    btn.Position = UDim2.new(0.7, 0, 0, 3)
-    btn.BackgroundColor3 = getgenv().TWKS_Config.QuickButtons[configKey] and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
-    btn.Text = getgenv().TWKS_Config.QuickButtons[configKey] and "ON" or "OFF"
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 11
-    btn.Parent = frame
-    
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 4)
-    c.Parent = btn
-    
-    btn.MouseButton1Click:Connect(function()
-        getgenv().TWKS_Config.QuickButtons[configKey] = not getgenv().TWKS_Config.QuickButtons[configKey]
-        local state = getgenv().TWKS_Config.QuickButtons[configKey]
-        btn.BackgroundColor3 = state and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
-        btn.Text = state and "ON" or "OFF"
-    end)
-end
-
 local function addSliderBox(parent, text, configKey, step)
     step = step or 5
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -5, 0, 45)
+    frame.Size = UDim2.new(1, 0, 0, 30)
     frame.BackgroundTransparency = 1
     frame.Parent = parent
     
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 0, 20)
+    lbl.Size = UDim2.new(0.5, 0, 1, 0)
     lbl.BackgroundTransparency = 1
-    lbl.Text = text .. ": " .. tostring(getgenv().TWKS_Config[configKey])
-    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    lbl.Text = "   " .. text .. ": " .. tostring(getgenv().TWKS_Config[configKey])
+    lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
     lbl.Font = Enum.Font.Gotham
     lbl.TextSize = 11
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = frame
     
     local minusBtn = Instance.new("TextButton")
-    minusBtn.Size = UDim2.new(0.45, 0, 0, 20)
-    minusBtn.Position = UDim2.new(0, 0, 0, 22)
-    minusBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    minusBtn.Text = "- " .. tostring(step)
+    minusBtn.Size = UDim2.new(0, 35, 0, 22)
+    minusBtn.Position = UDim2.new(0.55, 0, 0, 4)
+    minusBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    minusBtn.Text = "-"
     minusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     minusBtn.Font = Enum.Font.GothamBold
-    minusBtn.TextSize = 11
     minusBtn.Parent = frame
+    Instance.new("UICorner", minusBtn).CornerRadius = UDim.new(0, 4)
     
     local plusBtn = Instance.new("TextButton")
-    plusBtn.Size = UDim2.new(0.45, 0, 0, 20)
-    plusBtn.Position = UDim2.new(0.5, 0, 0, 22)
-    plusBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    plusBtn.Text = "+ " .. tostring(step)
+    plusBtn.Size = UDim2.new(0, 35, 0, 22)
+    plusBtn.Position = UDim2.new(0.8, 0, 0, 4)
+    plusBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    plusBtn.Text = "+"
     plusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     plusBtn.Font = Enum.Font.GothamBold
-    plusBtn.TextSize = 11
     plusBtn.Parent = frame
+    Instance.new("UICorner", plusBtn).CornerRadius = UDim.new(0, 4)
     
     minusBtn.MouseButton1Click:Connect(function()
-        getgenv().TWKS_Config[configKey] = math.max(0.1, getgenv().TWKS_Config[configKey] - (step == 0.1 and 0.1 or step))
-        lbl.Text = text .. ": " .. string.format("%.1f", getgenv().TWKS_Config[configKey])
+        getgenv().TWKS_Config[configKey] = math.max(0, getgenv().TWKS_Config[configKey] - step)
+        lbl.Text = "   " .. text .. ": " .. tostring(getgenv().TWKS_Config[configKey])
     end)
-    
     plusBtn.MouseButton1Click:Connect(function()
-        getgenv().TWKS_Config[configKey] = getgenv().TWKS_Config[configKey] + (step == 0.1 and 0.1 or step)
-        lbl.Text = text .. ": " .. string.format("%.1f", getgenv().TWKS_Config[configKey])
+        getgenv().TWKS_Config[configKey] = getgenv().TWKS_Config[configKey] + step
+        lbl.Text = "   " .. text .. ": " .. tostring(getgenv().TWKS_Config[configKey])
     end)
 end
 
 local function addHexColorInput(parent, labelText, configKey)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -5, 0, 35)
+    frame.Size = UDim2.new(1, 0, 0, 30)
     frame.BackgroundTransparency = 1
     frame.Parent = parent
     
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(0.45, 0, 1, 0)
+    lbl.Size = UDim2.new(0.5, 0, 1, 0)
     lbl.BackgroundTransparency = 1
-    lbl.Text = labelText
-    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    lbl.Text = "   " .. labelText
+    lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
     lbl.Font = Enum.Font.Gotham
     lbl.TextSize = 11
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = frame
     
     local box = Instance.new("TextBox")
-    box.Size = UDim2.new(0.5, 0, 0, 26)
-    box.Position = UDim2.new(0.48, 0, 0.1, 0)
+    box.Size = UDim2.new(0, 80, 0, 22)
+    box.Position = UDim2.new(0.6, 0, 0, 4)
     box.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     box.Text = tostring(getgenv().TWKS_Config[configKey])
     box.TextColor3 = Color3.fromRGB(255, 255, 255)
     box.Font = Enum.Font.GothamBold
-    box.TextSize = 12
+    box.TextSize = 11
     box.Parent = frame
-    
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 4)
-    c.Parent = box
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
     
     box.FocusLost:Connect(function()
         local val = box.Text
@@ -553,175 +463,102 @@ local function addHexColorInput(parent, labelText, configKey)
     end)
 end
 
-local function addPresetButton(parent, text, multiplier)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -5, 0, 28)
-    btn.BackgroundColor3 = Color3.fromRGB(55, 55, 75)
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 12
-    btn.Parent = parent
-    
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 4)
-    c.Parent = btn
-    
-    btn.MouseButton1Click:Connect(function()
-        getgenv().TWKS_Config.HitboxSize = multiplier
-        getgenv().TWKS_Config.HitboxEnabled = (multiplier ~= 1)
-    end)
+-- НАПОЛНЕНИЕ ВКЛАДКИ WEAPON
+local secAimbot = addDropdownSection(TabWeapon, "Aimbot")
+addToggle(secAimbot, "Aimbot Active", "Aimbot")
+addToggle(secAimbot, "WallCheck", "AimbotWallCheck")
+addSliderBox(secAimbot, "Smoothness", "Sensitivity", 0.1)
+
+local secTrigger = addDropdownSection(TabWeapon, "TriggerBot")
+addToggle(secTrigger, "TriggerBot Active", "Triggerbot")
+addToggle(secTrigger, "WallCheck", "TriggerWallCheck")
+addSliderBox(secTrigger, "Delay (ms)", "TriggerDelay", 25)
+
+-- НАПОЛНЕНИЕ ВКЛАДКИ VISUALS
+local secESP = addDropdownSection(TabVisuals, "ESP")
+addToggle(secESP, "ESP Enabled", "ESP_Enabled")
+addToggle(secESP, "2D Box", "Box2D")
+addToggle(secESP, "Names", "Names")
+addHexColorInput(secESP, "Color Visible", "ESP_VisibleHex")
+addHexColorInput(secESP, "Color Hidden", "ESP_HiddenHex")
+
+local secChams = addDropdownSection(TabVisuals, "Chams")
+addToggle(secChams, "Chams Enabled", "Chams")
+addHexColorInput(secChams, "Color Visible", "ChamsVisibleHex")
+addHexColorInput(secChams, "Color Hidden", "ChamsHiddenHex")
+
+-- НАПОЛНЕНИЕ ВКЛАДКИ MOVEMENT
+local secFly = addDropdownSection(TabMovement, "Fly")
+addToggle(secFly, "Fly (Normal)", "Fly")
+addSliderBox(secFly, "Fly Speed", "FlySpeed", 10)
+addToggle(secFly, "C-Fly (Safe)", "CFly")
+addSliderBox(secFly, "C-Fly Speed", "CFlySpeed", 10)
+
+local secSpeed = addDropdownSection(TabMovement, "SpeedHack")
+addToggle(secSpeed, "SpeedHack Enabled", "SpeedHack")
+addSliderBox(secSpeed, "Speed Value", "SpeedValue", 2)
+
+local secJump = addDropdownSection(TabMovement, "JumpHack")
+addToggle(secJump, "JumpHack Enabled", "JumpHack")
+addSliderBox(secJump, "Jump Height", "JumpPower", 10)
+addToggle(secJump, "BunnyHop", "Bunnyhop")
+addSliderBox(secJump, "Bhop Multiplier", "BhopSpeedGain", 0.1)
+
+local secSpin = addDropdownSection(TabMovement, "SpinBot")
+addToggle(secSpin, "SpinBot (AntiAim)", "SpinBot")
+addSliderBox(secSpin, "Spin Speed", "SpinSpeed", 50)
+
+-- НАПОЛНЕНИЕ ВКЛАДКИ MISC
+local secCenterClick = addDropdownSection(TabMisc, "Center Click Button")
+addToggle(secCenterClick, "Center Click Enable", "CenterClickEnabled")
+addSliderBox(secCenterClick, "Offset X", "ClickOffsetX", 5)
+addSliderBox(secCenterClick, "Offset Y", "ClickOffsetY", 5)
+
+local secFloating = addDropdownSection(TabMisc, "Floating Buttons")
+local floatOptions = {"Aimbot", "Triggerbot", "ESP", "Chams", "Fly", "CFly", "SpeedHack", "JumpHack", "BunnyHop", "SpinBot"}
+for _, opt in ipairs(floatOptions) do
+    addToggle(secFloating, opt .. " Button", "FloatingButtons_" .. opt)
+    -- Маппинг для удобного доступа
+    getgenv().TWKS_Config["FloatingButtons_" .. opt] = false
 end
 
--- НАПОЛНЕНИЕ ВКЛАДОК
-addToggle(TabAimbot, "Aimbot Active", "Aimbot")
-addToggle(TabAimbot, "Aimbot WallCheck", "AimbotWallCheck")
-
-addToggle(TabVisuals, "ESP Enabled", "ESP_Enabled")
-addToggle(TabVisuals, "2D Box", "Box2D")
-addToggle(TabVisuals, "Line (Tracer)", "Lines")
-addToggle(TabVisuals, "Nickname", "Names")
-addHexColorInput(TabVisuals, "ESP HEX Color", "ESP_Hex")
-addSliderBox(TabVisuals, "ESP Offset X", "OffsetX", 5)
-addSliderBox(TabVisuals, "ESP Offset Y", "OffsetY", 5)
-
-addToggle(TabChams, "Chams Enabled", "Chams")
-addHexColorInput(TabChams, "Chams HEX Color", "ChamsHex")
-
-addToggle(TabRage, "Triggerbot (Auto-Fire)", "Triggerbot")
-addToggle(TabRage, "Trigger WallCheck", "TriggerWallCheck")
-addToggle(TabRage, "Bunnyhop (Auto-Jump)", "Bunnyhop")
-addSliderBox(TabRage, "Bhop Speed Multiplier", "BhopSpeedGain", 0.1)
-addToggle(TabRage, "Anti-Aim (Desync Spin)", "AntiAim")
-addToggle(TabRage, "C-Fly (Safe Desync)", "CFly")
-addSliderBox(TabRage, "C-Fly Speed", "CFlySpeed", 10)
-addToggle(TabRage, "Hitbox Expander", "HitboxEnabled")
-
-local presetLbl = Instance.new("TextLabel")
-presetLbl.Size = UDim2.new(1, -5, 0, 20)
-presetLbl.BackgroundTransparency = 1
-presetLbl.Text = "--- Пресеты хитбоксов ---"
-presetLbl.TextColor3 = Color3.fromRGB(180, 180, 180)
-presetLbl.Font = Enum.Font.GothamBold
-presetLbl.TextSize = 11
-presetLbl.Parent = TabRage
-
-addPresetButton(TabRage, "Сброс (Normal)", 1)
-addPresetButton(TabRage, "Legit (1.25)", 1.25)
-addPresetButton(TabRage, "Rage (x3)", 3)
-addPresetButton(TabRage, "Sky (x100 / Стабильный)", 100)
-
-addToggle(TabMisc, "Mobile Center Clicker", "MobileButton")
-addSliderBox(TabMisc, "Click Offset X", "ClickOffsetX", 5)
-addSliderBox(TabMisc, "Click Offset Y", "ClickOffsetY", 5)
-
-local qbHeader = Instance.new("TextLabel")
-qbHeader.Size = UDim2.new(1, -5, 0, 25)
-qbHeader.BackgroundTransparency = 1
-qbHeader.Text = "--- Плавающие кнопки экрана ---"
-qbHeader.TextColor3 = Color3.fromRGB(180, 150, 255)
-qbHeader.Font = Enum.Font.GothamBold
-qbHeader.TextSize = 11
-qbHeader.Parent = TabMisc
-
-addQuickButtonToggle(TabMisc, "Плавающая кнопка: AIM", "Aimbot")
-addQuickButtonToggle(TabMisc, "Плавающая кнопка: TRIG", "Triggerbot")
-addQuickButtonToggle(TabMisc, "Плавающая кнопка: ESP", "ESP_Enabled")
-addQuickButtonToggle(TabMisc, "Плавающая кнопка: FLY", "CFly")
-addQuickButtonToggle(TabMisc, "Плавающая кнопка: HIT", "HitboxEnabled")
-addQuickButtonToggle(TabMisc, "Плавающая кнопка: BHOP", "Bunnyhop")
-addQuickButtonToggle(TabMisc, "Плавающая кнопка: AA", "AntiAim")
-
-local statusLbl = Instance.new("TextLabel")
-statusLbl.Size = UDim2.new(1, -5, 0, 25)
-statusLbl.BackgroundTransparency = 1
-statusLbl.Text = "Статус: Ожидание действия"
-statusLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-statusLbl.Font = Enum.Font.Gotham
-statusLbl.TextSize = 11
-statusLbl.Parent = TabConfig
-
-local saveBtn = Instance.new("TextButton")
-saveBtn.Size = UDim2.new(1, -5, 0, 35)
-saveBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-saveBtn.Text = "Сохранить конфиг"
-saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-saveBtn.Font = Enum.Font.GothamBold
-saveBtn.TextSize = 12
-saveBtn.Parent = TabConfig
-
-local sCorner = Instance.new("UICorner")
-sCorner.CornerRadius = UDim.new(0, 6)
-sCorner.Parent = saveBtn
-
-saveBtn.MouseButton1Click:Connect(function()
-    saveConfig()
-    statusLbl.Text = "Статус: Конфиг сохранен!"
-    statusLbl.TextColor3 = Color3.fromRGB(50, 255, 50)
-end)
-
-local loadBtn = Instance.new("TextButton")
-loadBtn.Size = UDim2.new(1, -5, 0, 35)
-loadBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
-loadBtn.Text = "Загрузить конфиг"
-loadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-loadBtn.Font = Enum.Font.GothamBold
-loadBtn.TextSize = 12
-loadBtn.Parent = TabConfig
-
-local lCorner = Instance.new("UICorner")
-lCorner.CornerRadius = UDim.new(0, 6)
-lCorner.Parent = loadBtn
-
-loadBtn.MouseButton1Click:Connect(function()
-    loadConfig()
-    statusLbl.Text = "Статус: Конфиг загружен!"
-    statusLbl.TextColor3 = Color3.fromRGB(50, 200, 255)
-end)
-
-local function createFloatingButton(name, text, defaultPosY, configKey)
+-- СОЗДАНИЕ ПЛАВАЮЩИХ КНОПОК
+local function createFloatingButton(name, defaultPosY, configKey)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 50, 0, 50)
-    
-    local savedPos = getgenv().TWKS_Config.ButtonPositions[configKey]
+    local savedPos = getgenv().TWKS_Config.ButtonPositions[name]
     if savedPos then
         btn.Position = UDim2.new(savedPos[1], savedPos[2], savedPos[3], savedPos[4])
     else
         btn.Position = UDim2.new(0.03, 0, 0.15, defaultPosY)
     end
-    
     btn.BackgroundColor3 = Color3.fromRGB(100, 50, 200)
-    btn.Text = text
+    btn.Text = name
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 10
+    btn.TextSize = 9
     btn.Visible = false
     btn.Active = true
     btn.Draggable = true
     btn.Parent = ScreenGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
-    corner.Parent = btn
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
     
     btn.MouseButton1Click:Connect(function()
-        if getgenv().TWKS_Config[configKey] ~= nil then
-            getgenv().TWKS_Config[configKey] = not getgenv().TWKS_Config[configKey]
+        if getgenv().TWKS_Config[name] ~= nil then
+            getgenv().TWKS_Config[name] = not getgenv().TWKS_Config[name]
         end
     end)
     
-    activeFloatingButtons[configKey] = btn
+    activeFloatingButtons[name] = btn
 end
 
--- Создаем плавающие кнопки с безопасными отступами
-createFloatingButton("AimBtn", "AIM", 0, "Aimbot")
-createFloatingButton("TrigBtn", "TRIG", 55, "Triggerbot")
-createFloatingButton("ESPBtn", "ESP", 110, "ESP_Enabled")
-createFloatingButton("FlyBtn", "FLY", 165, "CFly")
-createFloatingButton("HitBtn", "HIT", 220, "HitboxEnabled")
-createFloatingButton("BhopBtn", "BHOP", 275, "Bunnyhop")
-createFloatingButton("AABtn", "AA", 330, "AntiAim")
+local floatY = 0
+for _, opt in ipairs(floatOptions) do
+    createFloatingButton(opt, floatY, "FloatingButtons_" .. opt)
+    floatY = floatY + 55
+end
 
+-- Кнопка по центру экрана (Center Clicker)
 local CenterClickBtn = Instance.new("TextButton")
 CenterClickBtn.Size = UDim2.new(0, 55, 0, 55)
 CenterClickBtn.Position = UDim2.new(0.85, -28, 0.7, -28)
@@ -734,16 +571,12 @@ CenterClickBtn.Visible = false
 CenterClickBtn.Active = true
 CenterClickBtn.Draggable = true
 CenterClickBtn.Parent = ScreenGui
-
-local CCBtnCorner = Instance.new("UICorner")
-CCBtnCorner.CornerRadius = UDim.new(1, 0)
-CCBtnCorner.Parent = CenterClickBtn
+Instance.new("UICorner", CenterClickBtn).CornerRadius = UDim.new(1, 0)
 
 local function performClick()
     local viewport = CurrentCamera.ViewportSize
     local targetX = (viewport.X / 2) + getgenv().TWKS_Config.ClickOffsetX
     local targetY = (viewport.Y / 2) + getgenv().TWKS_Config.ClickOffsetY
-    
     pcall(function()
         VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, true, game, 0)
         task.wait(0.05)
@@ -751,17 +584,9 @@ local function performClick()
     end)
 end
 
-local activeTouchInput = nil
-CenterClickBtn.InputBegan:Connect(function(input)
-    if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) and not activeTouchInput then
-        activeTouchInput = input
-        performClick()
-    end
-end)
-CenterClickBtn.InputEnded:Connect(function(input)
-    if input == activeTouchInput then activeTouchInput = nil end
-end)
+CenterClickBtn.MouseButton1Click:Connect(performClick)
 
+-- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ И ЛОГИКА
 local function getTargetCharacters()
     local characters = {}
     pcall(function()
@@ -790,9 +615,8 @@ local function isEnemy(playerModel)
     return true
 end
 
--- ПРОВЕРКИ ВИДИМОСТИ
-local function isVisibleForAimbot(targetPart)
-    if not getgenv().TWKS_Config.AimbotWallCheck then return true end
+local function isVisible(targetPart, wallCheckEnabled)
+    if not wallCheckEnabled then return true end
     local myChar = LocalPlayer.Character
     if not myChar or not myChar:FindFirstChild("Head") then return false end
     local origin = myChar.Head.Position
@@ -800,25 +624,8 @@ local function isVisibleForAimbot(targetPart)
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     raycastParams.FilterDescendantsInstances = {myChar, targetPart.Parent}
-    local success, result = pcall(function()
-        return workspace:Raycast(origin, direction, raycastParams)
-    end)
-    return success and result == nil
-end
-
-local function isVisibleForTrigger(targetPart)
-    if not getgenv().TWKS_Config.TriggerWallCheck then return true end
-    local myChar = LocalPlayer.Character
-    if not myChar or not myChar:FindFirstChild("Head") then return false end
-    local origin = myChar.Head.Position
-    local direction = targetPart.Position - origin
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    raycastParams.FilterDescendantsInstances = {myChar, targetPart.Parent}
-    local success, result = pcall(function()
-        return workspace:Raycast(origin, direction, raycastParams)
-    end)
-    return success and result == nil
+    local result = workspace:Raycast(origin, direction, raycastParams)
+    return result == nil
 end
 
 local function getClosestEnemy()
@@ -826,8 +633,8 @@ local function getClosestEnemy()
     local shortestDistance = math.huge
     for _, char in ipairs(getTargetCharacters()) do
         if isEnemy(char) then
-            local targetPart = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head") or char:FindFirstChildOfClass("BasePart")
-            if targetPart and isVisibleForAimbot(targetPart) then
+            local targetPart = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
+            if targetPart and isVisible(targetPart, getgenv().TWKS_Config.AimbotWallCheck) then
                 local success, screenPoint, onScreen = pcall(function()
                     return CurrentCamera:WorldToViewportPoint(targetPart.Position)
                 end)
@@ -845,102 +652,148 @@ local function getClosestEnemy()
     return target
 end
 
+-- РЕНДЕР И ФУНКЦИОНАЛ
 local espDrawings = {}
-
 local function clearESP()
     for _, drawings in pairs(espDrawings) do
         pcall(function()
             if drawings.Box then drawings.Box:Remove() end
-            if drawings.Line then drawings.Line:Remove() end
             if drawings.Name then drawings.Name:Remove() end
         end)
     end
     espDrawings = {}
 end
 
-local function removeCharESP(char)
-    if espDrawings[char] then
-        pcall(function()
-            if espDrawings[char].Box then espDrawings[char].Box:Remove() end
-            if espDrawings[char].Line then espDrawings[char].Line:Remove() end
-            if espDrawings[char].Name then espDrawings[char].Name:Remove() end
-        end)
-        espDrawings[char] = nil
-    end
-end
+local flyConnection, cflyConnection
+local originalGravity = workspace.Gravity
+local storedCFlyCFrame = nil
+local originalWalkSpeed = 16
 
--- ОСНОВНОЙ ЦИКЛ РАБОТЫ
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(dt)
     local cfg = getgenv().TWKS_Config
-    local targetPart = getClosestEnemy()
     
-    CenterClickBtn.Visible = cfg.MobileButton
-    
-    for configKey, btnInstance in pairs(activeFloatingButtons) do
-        local showButton = cfg.QuickButtons[configKey]
-        if showButton then
-            btnInstance.Visible = true
-            if cfg[configKey] then
-                btnInstance.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-            else
-                btnInstance.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    -- Плавающие кнопки видимость
+    CenterClickBtn.Visible = cfg.CenterClickEnabled
+    for _, opt in ipairs(floatOptions) do
+        local btn = activeFloatingButtons[opt]
+        if btn then
+            local show = cfg["FloatingButtons_" .. opt]
+            btn.Visible = show
+            if show then
+                if cfg[opt] then
+                    btn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+                else
+                    btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+                end
             end
-        else
-            btnInstance.Visible = false
         end
     end
     
-    -- Управление C-Fly
-    if cfg.CFly and not cflyConnection then
-        toggleCFly(true)
-    elseif not cfg.CFly and cflyConnection then
-        toggleCFly(false)
+    -- Fly
+    if cfg.Fly then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local root = char.HumanoidRootPart
+                workspace.Gravity = 0
+                local cam = CurrentCamera
+                local moveDir = Vector3.new(0,0,0)
+                if isFlyingUp then moveDir = moveDir + Vector3.new(0,1,0) end
+                if isFlyingDown then moveDir = moveDir - Vector3.new(0,1,0) end
+                root.AssemblyLinearVelocity = moveDir * cfg.FlySpeed
+                FlyUpBtn.Visible = true
+                FlyDownBtn.Visible = true
+            end
+        end)
+    else
+        FlyUpBtn.Visible = false
+        FlyDownBtn.Visible = false
     end
     
-    -- Улучшенный Bunnyhop с набором скорости и мгновенным сбросом при остановке
+    -- C-Fly
+    if cfg.CFly and not cflyConnection then
+        workspace.Gravity = 0
+        storedCFlyCFrame = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.CFrame
+        cflyConnection = RunService.RenderStepped:Connect(function(delta)
+            if not cfg.CFly then return end
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local root = char.HumanoidRootPart
+                local cam = CurrentCamera
+                local moveDir = Vector3.new(0,0,0)
+                if isFlyingUp then moveDir = moveDir + Vector3.new(0,1,0) end
+                if isFlyingDown then moveDir = moveDir - Vector3.new(0,1,0) end
+                if moveDir.Magnitude > 0 then
+                    storedCFlyCFrame = storedCFlyCFrame + (moveDir.Unit * cfg.CFlySpeed * delta)
+                end
+                root.CFrame = storedCFlyCFrame
+                root.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            end
+        end)
+    elseif not cfg.CFly and cflyConnection then
+        cflyConnection:Disconnect()
+        cflyConnection = nil
+        workspace.Gravity = originalGravity
+    end
+    
+    -- SpeedHack
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if originalWalkSpeed == 16 then originalWalkSpeed = hum.WalkSpeed end
+            if cfg.SpeedHack and not cfg.Bunnyhop then
+                hum.WalkSpeed = cfg.SpeedValue
+            elseif not cfg.Bunnyhop then
+                hum.WalkSpeed = originalWalkSpeed
+            end
+        end
+    end)
+    
+    -- JumpHack
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if cfg.JumpHack then
+                hum.JumpPower = cfg.JumpPower
+                hum.UseJumpPower = true
+            end
+        end
+    end)
+    
+    -- BunnyHop
     if cfg.Bunnyhop then
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChildOfClass("Humanoid") then
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if originalWalkSpeed == 16 then
-                    originalWalkSpeed = humanoid.WalkSpeed
-                end
-                
-                if humanoid.MoveDirection.Magnitude > 0 then
-                    if humanoid.FloorMaterial ~= Enum.Material.Air then
-                        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                        -- Увеличиваем скорость при каждом успешном приземлении во время движения
-                        humanoid.WalkSpeed = math.min(humanoid.WalkSpeed * cfg.BhopSpeedGain, 80)
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum.MoveDirection.Magnitude > 0 then
+                    if hum.FloorMaterial ~= Enum.Material.Air then
+                        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                        hum.WalkSpeed = math.min(hum.WalkSpeed * cfg.BhopSpeedGain, 100)
                     end
                 else
-                    -- Мгновенный сброс скорости при остановке
-                    humanoid.WalkSpeed = originalWalkSpeed
+                    hum.WalkSpeed = originalWalkSpeed
                 end
-            end
-        end)
-    else
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChildOfClass("Humanoid") then
-                char:FindFirstChildOfClass("Humanoid").WalkSpeed = originalWalkSpeed
             end
         end)
     end
     
-    -- Anti-Aim (Десинк / Спинбот)
-    if cfg.AntiAim then
+    -- SpinBot
+    if cfg.SpinBot then
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
-                local rootPart = char.HumanoidRootPart
-                local rotSpeed = tick() * 200
-                rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(rotSpeed % 360), 0)
+                local root = char.HumanoidRootPart
+                local rot = tick() * cfg.SpinSpeed
+                root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(rot % 360), 0)
             end
         end)
     end
     
     -- Aimbot
+    local targetPart = getClosestEnemy()
     if cfg.Aimbot and targetPart then
         pcall(function()
             local currentPos = CurrentCamera.CFrame.Position
@@ -949,22 +802,20 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
-    -- Triggerbot
+    -- Triggerbot (с настраиваемой задержкой в мс)
     if cfg.Triggerbot then
         for _, char in ipairs(getTargetCharacters()) do
             if isEnemy(char) then
                 local trigPart = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
-                if trigPart and isVisibleForTrigger(trigPart) then
+                if trigPart and isVisible(trigPart, cfg.TriggerWallCheck) then
                     local success, screenPoint, onScreen = pcall(function()
                         return CurrentCamera:WorldToViewportPoint(trigPart.Position)
                     end)
                     if success and onScreen then
                         local viewport = CurrentCamera.ViewportSize
-                        local screenCenter = Vector2.new(viewport.X / 2, viewport.Y / 2)
-                        local targetScreenPos = Vector2.new(screenPoint.X, screenPoint.Y)
-                        local crosshairDistance = (screenCenter - targetScreenPos).Magnitude
-                        
-                        if crosshairDistance <= 35 then
+                        local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+                        if (center - Vector2.new(screenPoint.X, screenPoint.Y)).Magnitude <= 30 then
+                            task.wait(cfg.TriggerDelay / 1000)
                             performClick()
                             break
                         end
@@ -974,16 +825,8 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Отрисовка Chams и Hitbox
+    -- Chams с динамической сменой цветов (виден/не виден)
     local targets = getTargetCharacters()
-    local activeChars = {}
-    for _, c in ipairs(targets) do activeChars[c] = true end
-    
-    for char, _ in pairs(espDrawings) do
-        if not activeChars[char] or not char.Parent then removeCharESP(char) end
-    end
-    
-    local currentChamsColor = hexToColor3(cfg.ChamsHex)
     for _, char in ipairs(targets) do
         pcall(function()
             if cfg.Chams then
@@ -992,11 +835,17 @@ RunService.RenderStepped:Connect(function()
                     highlight = Instance.new("Highlight")
                     highlight.Name = "TWKS_Chams"
                     highlight.Adornee = char
-                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
                     highlight.FillTransparency = cfg.ChamsTransparency
                     highlight.Parent = char
                 end
-                highlight.FillColor = currentChamsColor
+                local part = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChildOfClass("BasePart")
+                if part and isVisible(part, true) then
+                    highlight.FillColor = hexToColor3(cfg.ChamsVisibleHex)
+                    highlight.OutlineColor = hexToColor3(cfg.ChamsVisibleHex)
+                else
+                    highlight.FillColor = hexToColor3(cfg.ChamsHiddenHex)
+                    highlight.OutlineColor = hexToColor3(cfg.ChamsHiddenHex)
+                end
             else
                 local highlight = char:FindFirstChild("TWKS_Chams")
                 if highlight then highlight:Destroy() end
@@ -1004,25 +853,7 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
-    for _, char in ipairs(targets) do
-        pcall(function()
-            local part = char:FindFirstChild(cfg.HitboxPart) or char:FindFirstChildOfClass("BasePart")
-            if part then
-                if not originalSizes[part] then originalSizes[part] = part.Size end
-                if cfg.HitboxEnabled and cfg.HitboxSize > 1 then
-                    part.Size = originalSizes[part] * cfg.HitboxSize
-                    part.Transparency = 0.7
-                    part.CanCollide = false
-                else
-                    part.Size = originalSizes[part]
-                    part.Transparency = 0
-                end
-            end
-        end)
-    end
-    
-    -- ESP рендеринг
-    local currentESPColor = hexToColor3(cfg.ESP_Hex)
+    -- ESP с динамической сменой цветов (виден/не виден)
     if not cfg.ESP_Enabled then
         clearESP()
     else
@@ -1030,60 +861,51 @@ RunService.RenderStepped:Connect(function()
             pcall(function()
                 local primaryPart = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChildOfClass("BasePart")
                 local humanoid = char:FindFirstChildOfClass("Humanoid")
-                
                 if primaryPart and humanoid and humanoid.Health > 0 then
                     if not espDrawings[char] then
                         espDrawings[char] = {
                             Box = Drawing.new("Square"),
-                            Line = Drawing.new("Line"),
                             Name = Drawing.new("Text")
                         }
                         espDrawings[char].Box.Thickness = 1
                         espDrawings[char].Box.Filled = false
-                        espDrawings[char].Line.Thickness = 1
                         espDrawings[char].Name.Size = 14
                         espDrawings[char].Name.Center = true
                         espDrawings[char].Name.Outline = true
                     end
                     
                     local d = espDrawings[char]
-                    d.Box.Color = currentESPColor
-                    d.Line.Color = currentESPColor
-                    d.Name.Color = currentESPColor
+                    local isVis = isVisible(primaryPart, true)
+                    local col = isVis and hexToColor3(cfg.ESP_VisibleHex) or hexToColor3(cfg.ESP_HiddenHex)
+                    d.Box.Color = col
+                    d.Name.Color = col
                     
-                    local pos, onScreen = CurrentCamera:WorldToViewportPoint(primaryPart.Position + Vector3.new(cfg.OffsetX, cfg.OffsetY, 0))
-                    
+                    local pos, onScreen = CurrentCamera:WorldToViewportPoint(primaryPart.Position)
                     if onScreen and pos.Z > 0 then
                         if cfg.Box2D then
                             d.Box.Visible = true
-                            d.Box.Size = Vector2.new(40, 60)
-                            d.Box.Position = Vector2.new(pos.X - 20, pos.Y - 30)
+                            d.Box.Size = Vector2.new(35, 55)
+                            d.Box.Position = Vector2.new(pos.X - 17.5, pos.Y - 27.5)
                         else
                             d.Box.Visible = false
                         end
-                        
-                        if cfg.Lines then
-                            d.Line.Visible = true
-                            d.Line.From = Vector2.new(CurrentCamera.ViewportSize.X / 2, CurrentCamera.ViewportSize.Y)
-                            d.Line.To = Vector2.new(pos.X, pos.Y)
-                        else
-                            d.Line.Visible = false
-                        end
-                        
                         if cfg.Names then
                             d.Name.Visible = true
                             d.Name.Text = char.Name
-                            d.Name.Position = Vector2.new(pos.X, pos.Y - 45)
+                            d.Name.Position = Vector2.new(pos.X, pos.Y - 40)
                         else
                             d.Name.Visible = false
                         end
                     else
                         d.Box.Visible = false
-                        d.Line.Visible = false
                         d.Name.Visible = false
                     end
                 else
-                    removeCharESP(char)
+                    if espDrawings[char] then
+                        if espDrawings[char].Box then espDrawings[char].Box:Remove() end
+                        if espDrawings[char].Name then espDrawings[char].Name:Remove() end
+                        espDrawings[char] = nil
+                    end
                 end
             end)
         end
