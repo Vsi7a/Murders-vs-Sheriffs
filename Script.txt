@@ -1,4 +1,4 @@
--- // TWKS Hub - Murders vs Sheriffs (Saved Floating Positions, Safe C-Fly, WallShot)
+-- // TWKS Hub - Murders vs Sheriffs (Bhop, Anti-Aim, Safe C-Fly, Saved Positions)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
@@ -16,7 +16,11 @@ getgenv().TWKS_Config = {
     
     Triggerbot = false,
     TriggerWallCheck = true,
-    WallShot = false, -- Экспериментальный волшот
+    
+    -- Новые функции: Бхоп и Анти-аим
+    Bunnyhop = false,
+    AntiAim = false,
+    AntiAimMode = "Spin", -- Spin или Jitter
     
     ESP_Enabled = false,
     Box2D = false,
@@ -47,16 +51,20 @@ getgenv().TWKS_Config = {
         Triggerbot = false,
         ESP_Enabled = false,
         CFly = false,
-        HitboxEnabled = false
+        HitboxEnabled = false,
+        Bunnyhop = false,
+        AntiAim = false
     },
     
-    -- Сохраняемые позиции плавающих кнопок (в формате Scale/Offset)
+    -- Сохраняемые позиции плавающих кнопок
     ButtonPositions = {
         Aimbot = {0.03, 0, 0.15, 0},
         Triggerbot = {0.03, 0, 0.15, 60},
         ESP_Enabled = {0.03, 0, 0.15, 120},
         CFly = {0.03, 0, 0.15, 180},
         HitboxEnabled = {0.03, 0, 0.15, 240},
+        Bunnyhop = {0.03, 0, 0.15, 300},
+        AntiAim = {0.03, 0, 0.15, 360},
         FlyUp = {0.9, -60, 0.4, 0},
         FlyDown = {0.9, -60, 0.4, 60}
     }
@@ -74,30 +82,22 @@ end
 
 -- СИСТЕМА КОНФИГОВ (SAVE / LOAD)
 local configFileName = "TWKS_Config.json"
-
 local activeFloatingButtons = {}
 
 local function saveConfig()
-    local success, err = pcall(function()
-        -- Сохраняем актуальные позиции кнопок перед сериализацией
+    pcall(function()
         for k, btn in pairs(activeFloatingButtons) do
             if btn and btn.AbsolutePosition then
                 getgenv().TWKS_Config.ButtonPositions[k] = {btn.Position.X.Scale, btn.Position.X.Offset, btn.Position.Y.Scale, btn.Position.Y.Offset}
             end
         end
-        
         local data = HttpService:JSONEncode(getgenv().TWKS_Config)
-        if writefile then
-            writefile(configFileName, data)
-        end
+        if writefile then writefile(configFileName, data) end
     end)
-    if not success then
-        warn("Ошибка сохранения конфига: " .. tostring(err))
-    end
 end
 
 local function loadConfig()
-    local success, err = pcall(function()
+    pcall(function()
         if isfile and isfile(configFileName) then
             local content = readfile(configFileName)
             local data = HttpService:JSONDecode(content)
@@ -121,9 +121,6 @@ local function loadConfig()
             end
         end
     end)
-    if not success then
-        warn("Ошибка загрузки конфига: " .. tostring(err))
-    end
 end
 
 local originalSizes = {}
@@ -234,7 +231,6 @@ local function toggleCFly(state)
             if moveVector.Magnitude > 0 then
                 local camLook = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z).Unit
                 local camRight = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z).Unit
-                
                 moveDir = (camLook * moveVector.Z) + (camRight * moveVector.X)
             end
             
@@ -277,7 +273,7 @@ MainCorner.Parent = MainFrame
 local Header = Instance.new("TextLabel")
 Header.Size = UDim2.new(1, -40, 0, 30)
 Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-Header.Text = "  TWKS Hub | WallShot & Saved Positions"
+Header.Text = "  TWKS Hub | Bhop & Anti-Aim"
 Header.TextColor3 = Color3.fromRGB(255, 255, 255)
 Header.Font = Enum.Font.GothamBold
 Header.TextSize = 13
@@ -543,11 +539,9 @@ local function addHexColorInput(parent, labelText, configKey)
     c.CornerRadius = UDim.new(0, 4)
     c.Parent = box
     
-    box.FocusLost:Connect(function(enterPressed)
+    box.FocusLost:Connect(function()
         local val = box.Text
-        if not val:match("^#") then
-            val = "#" .. val
-        end
+        if not val:match("^#") then val = "#" .. val end
         if #val == 7 then
             getgenv().TWKS_Config[configKey] = val
             box.Text = val
@@ -594,7 +588,8 @@ addHexColorInput(TabChams, "Chams HEX Color", "ChamsHex")
 
 addToggle(TabRage, "Triggerbot (Auto-Fire)", "Triggerbot")
 addToggle(TabRage, "Trigger WallCheck", "TriggerWallCheck")
-addToggle(TabRage, "WallShot (Through Walls)", "WallShot")
+addToggle(TabRage, "Bunnyhop (Auto-Jump)", "Bunnyhop")
+addToggle(TabRage, "Anti-Aim (Desync Spin)", "AntiAim")
 addToggle(TabRage, "C-Fly (Safe Desync)", "CFly")
 addSliderBox(TabRage, "C-Fly Speed", "CFlySpeed", 10)
 addToggle(TabRage, "Hitbox Expander", "HitboxEnabled")
@@ -631,6 +626,8 @@ addQuickButtonToggle(TabMisc, "Плавающая кнопка: TRIG", "Triggerb
 addQuickButtonToggle(TabMisc, "Плавающая кнопка: ESP", "ESP_Enabled")
 addQuickButtonToggle(TabMisc, "Плавающая кнопка: FLY", "CFly")
 addQuickButtonToggle(TabMisc, "Плавающая кнопка: HIT", "HitboxEnabled")
+addQuickButtonToggle(TabMisc, "Плавающая кнопка: BHOP", "Bunnyhop")
+addQuickButtonToggle(TabMisc, "Плавающая кнопка: AA", "AntiAim")
 
 local statusLbl = Instance.new("TextLabel")
 statusLbl.Size = UDim2.new(1, -5, 0, 25)
@@ -718,6 +715,8 @@ createFloatingButton("TrigBtn", "TRIG", 60, "Triggerbot")
 createFloatingButton("ESPBtn", "ESP", 120, "ESP_Enabled")
 createFloatingButton("FlyBtn", "FLY", 180, "CFly")
 createFloatingButton("HitBtn", "HIT", 240, "HitboxEnabled")
+createFloatingButton("BhopBtn", "BHOP", 300, "Bunnyhop")
+createFloatingButton("AABtn", "AA", 360, "AntiAim")
 
 local CenterClickBtn = Instance.new("TextButton")
 CenterClickBtn.Size = UDim2.new(0, 55, 0, 55)
@@ -749,18 +748,14 @@ local function performClick()
 end
 
 local activeTouchInput = nil
-
 CenterClickBtn.InputBegan:Connect(function(input)
     if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) and not activeTouchInput then
         activeTouchInput = input
         performClick()
     end
 end)
-
 CenterClickBtn.InputEnded:Connect(function(input)
-    if input == activeTouchInput then
-        activeTouchInput = nil
-    end
+    if input == activeTouchInput then activeTouchInput = nil end
 end)
 
 local function getTargetCharacters()
@@ -780,78 +775,58 @@ end
 
 local function isEnemy(playerModel)
     if playerModel == LocalPlayer.Character then return false end
-    
     local targetPlayer = Players:GetPlayerFromCharacter(playerModel)
     if targetPlayer then
         local myTeam = cachedTeams[LocalPlayer.UserId]
-        local targetTeam = cachedTeams[targetPlayer.UserId] -- Исправлено: заменено let на local
-        
+        local targetTeam = cachedTeams[targetPlayer.UserId]
         if myTeam and targetTeam then
             if myTeam == targetTeam then return false else return true end
         end
     end
-    
     return true
 end
 
--- ФУНКЦИИ ПРОВЕРКИ ВИДИМОСТИ И ВАЛШОТА
+-- ПРОВЕРКИ ВИДИМОСТИ
 local function isVisibleForAimbot(targetPart)
-    if getgenv().TWKS_Config.WallShot then return true end
     if not getgenv().TWKS_Config.AimbotWallCheck then return true end
-    
     local myChar = LocalPlayer.Character
     if not myChar or not myChar:FindFirstChild("Head") then return false end
-    
     local origin = myChar.Head.Position
     local direction = targetPart.Position - origin
-    
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     raycastParams.FilterDescendantsInstances = {myChar, targetPart.Parent}
-    
     local success, result = pcall(function()
         return workspace:Raycast(origin, direction, raycastParams)
     end)
-    
     return success and result == nil
 end
 
 local function isVisibleForTrigger(targetPart)
-    if getgenv().TWKS_Config.WallShot then return true end
     if not getgenv().TWKS_Config.TriggerWallCheck then return true end
-    
     local myChar = LocalPlayer.Character
     if not myChar or not myChar:FindFirstChild("Head") then return false end
-    
     local origin = myChar.Head.Position
     local direction = targetPart.Position - origin
-    
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     raycastParams.FilterDescendantsInstances = {myChar, targetPart.Parent}
-    
     local success, result = pcall(function()
         return workspace:Raycast(origin, direction, raycastParams)
     end)
-    
     return success and result == nil
 end
 
 local function getClosestEnemy()
     local target = nil
     local shortestDistance = math.huge
-    
     for _, char in ipairs(getTargetCharacters()) do
         if isEnemy(char) then
-            local targetPart = char:FindFirstChild("HumanoidRootPart") 
-                or char:FindFirstChild("Head") 
-                or char:FindFirstChildOfClass("BasePart")
-                
+            local targetPart = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head") or char:FindFirstChildOfClass("BasePart")
             if targetPart and isVisibleForAimbot(targetPart) then
                 local success, screenPoint, onScreen = pcall(function()
                     return CurrentCamera:WorldToViewportPoint(targetPart.Position)
                 end)
-                
                 if success and onScreen then
                     local mouse = LocalPlayer:GetMouse()
                     local dist = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(screenPoint.X, screenPoint.Y)).Magnitude
@@ -911,12 +886,39 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
+    -- Управление C-Fly
     if cfg.CFly and not cflyConnection then
         toggleCFly(true)
     elseif not cfg.CFly and cflyConnection then
         toggleCFly(false)
     end
     
+    -- Bunnyhop (Авто-прыжок)
+    if cfg.Bunnyhop then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid.MoveDirection.Magnitude > 0 and humanoid.FloorMaterial ~= Enum.Material.Air then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end
+        end)
+    end
+    
+    -- Anti-Aim (Десинк / Спинбот)
+    if cfg.AntiAim then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local rootPart = char.HumanoidRootPart
+                local rotSpeed = tick() * 200 -- Скорость вращения
+                rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(rotSpeed % 360), 0)
+            end
+        end)
+    end
+    
+    -- Aimbot
     if cfg.Aimbot and targetPart then
         pcall(function()
             local currentPos = CurrentCamera.CFrame.Position
@@ -925,6 +927,7 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
+    -- Triggerbot
     if cfg.Triggerbot then
         for _, char in ipairs(getTargetCharacters()) do
             if isEnemy(char) then
@@ -933,7 +936,6 @@ RunService.RenderStepped:Connect(function()
                     local success, screenPoint, onScreen = pcall(function()
                         return CurrentCamera:WorldToViewportPoint(trigPart.Position)
                     end)
-                    
                     if success and onScreen then
                         local viewport = CurrentCamera.ViewportSize
                         local screenCenter = Vector2.new(viewport.X / 2, viewport.Y / 2)
@@ -941,18 +943,6 @@ RunService.RenderStepped:Connect(function()
                         local crosshairDistance = (screenCenter - targetScreenPos).Magnitude
                         
                         if crosshairDistance <= 35 then
-                            if cfg.WallShot then
-                                pcall(function()
-                                    trigPart.CanCollide = false
-                                    trigPart.Size = trigPart.Size * 2
-                                    task.delay(0.1, function()
-                                        if trigPart and originalSizes[trigPart] then
-                                            trigPart.Size = originalSizes[trigPart]
-                                        end
-                                    end)
-                                end)
-                            end
-                            
                             performClick()
                             break
                         end
@@ -962,29 +952,33 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
+    -- Отрисовка Chams и Hitbox
     local targets = getTargetCharacters()
     local activeChars = {}
     for _, c in ipairs(targets) do activeChars[c] = true end
     
     for char, _ in pairs(espDrawings) do
-        if not activeChars[char] or not char.Parent then
-            removeCharESP(char)
-        end
+        if not activeChars[char] or not char.Parent then removeCharESP(char) end
     end
     
     local currentChamsColor = hexToColor3(cfg.ChamsHex)
     for _, char in ipairs(targets) do
         pcall(function()
-            local highlight = char:FindFirstChild("TWKS_Chams")
-            if not highlight then
-                highlight = Instance.new("Highlight")
-                highlight.Name = "TWKS_Chams"
-                highlight.Adornee = char
-                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                highlight.FillTransparency = cfg.ChamsTransparency
-                highlight.Parent = char
+            if cfg.Chams then
+                local highlight = char:FindFirstChild("TWKS_Chams")
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "TWKS_Chams"
+                    highlight.Adornee = char
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.FillTransparency = cfg.ChamsTransparency
+                    highlight.Parent = char
+                end
+                highlight.FillColor = currentChamsColor
+            else
+                local highlight = char:FindFirstChild("TWKS_Chams")
+                if highlight then highlight:Destroy() end
             end
-            highlight.FillColor = currentChamsColor
         end)
     end
     
@@ -992,10 +986,7 @@ RunService.RenderStepped:Connect(function()
         pcall(function()
             local part = char:FindFirstChild(cfg.HitboxPart) or char:FindFirstChildOfClass("BasePart")
             if part then
-                if not originalSizes[part] then
-                    originalSizes[part] = part.Size
-                end
-                
+                if not originalSizes[part] then originalSizes[part] = part.Size end
                 if cfg.HitboxEnabled and cfg.HitboxSize > 1 then
                     part.Size = originalSizes[part] * cfg.HitboxSize
                     part.Transparency = 0.7
@@ -1008,8 +999,8 @@ RunService.RenderStepped:Connect(function()
         end)
     end
     
+    -- ESP рендеринг
     local currentESPColor = hexToColor3(cfg.ESP_Hex)
-    
     if not cfg.ESP_Enabled then
         clearESP()
     else
@@ -1027,16 +1018,13 @@ RunService.RenderStepped:Connect(function()
                         }
                         espDrawings[char].Box.Thickness = 1
                         espDrawings[char].Box.Filled = false
-                        
                         espDrawings[char].Line.Thickness = 1
-                        
                         espDrawings[char].Name.Size = 14
                         espDrawings[char].Name.Center = true
                         espDrawings[char].Name.Outline = true
                     end
                     
                     local d = espDrawings[char]
-                    
                     d.Box.Color = currentESPColor
                     d.Line.Color = currentESPColor
                     d.Name.Color = currentESPColor
