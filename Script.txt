@@ -1,4 +1,4 @@
--- // TWKS Hub - Murders vs Sheriffs (Bhop, Anti-Aim, Safe C-Fly, Saved Positions)
+-- // TWKS Hub - Bhop with Velocity Ramp & Anti-Aim
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
@@ -17,10 +17,11 @@ getgenv().TWKS_Config = {
     Triggerbot = false,
     TriggerWallCheck = true,
     
-    -- Новые функции: Бхоп и Анти-аим
+    -- Настройки Бхопа и Анти-аима
     Bunnyhop = false,
+    BhopSpeedGain = 1.2, -- Множитель ускорения при прыжке
     AntiAim = false,
-    AntiAimMode = "Spin", -- Spin или Jitter
+    AntiAimMode = "Spin",
     
     ESP_Enabled = false,
     Box2D = false,
@@ -56,7 +57,7 @@ getgenv().TWKS_Config = {
         AntiAim = false
     },
     
-    -- Сохраняемые позиции плавающих кнопок
+    -- Исправленные позиции плавающих кнопок (без наложений и ухода за экран)
     ButtonPositions = {
         Aimbot = {0.03, 0, 0.15, 0},
         Triggerbot = {0.03, 0, 0.15, 60},
@@ -125,6 +126,7 @@ end
 
 local originalSizes = {}
 local cachedTeams = {}
+local originalWalkSpeed = 16
 
 pcall(function()
     local matchStartedEvent = game:GetService("ReplicatedStorage"):WaitForChild("Match"):WaitForChild("OnMatchStarted")
@@ -273,7 +275,7 @@ MainCorner.Parent = MainFrame
 local Header = Instance.new("TextLabel")
 Header.Size = UDim2.new(1, -40, 0, 30)
 Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-Header.Text = "  TWKS Hub | Bhop & Anti-Aim"
+Header.Text = "  TWKS Hub | Bhop Momentum"
 Header.TextColor3 = Color3.fromRGB(255, 255, 255)
 Header.Font = Enum.Font.GothamBold
 Header.TextSize = 13
@@ -356,7 +358,7 @@ local function createTab(name, posY)
     container.Size = UDim2.new(1, -110, 1, -35)
     container.Position = UDim2.new(0, 105, 0, 32)
     container.BackgroundTransparency = 1
-    container.CanvasSize = UDim2.new(0, 0, 0, 950)
+    container.CanvasSize = UDim2.new(0, 0, 0, 1050)
     container.ScrollBarThickness = 4
     container.Visible = false
     container.Parent = ContainerHolder
@@ -499,13 +501,13 @@ local function addSliderBox(parent, text, configKey, step)
     plusBtn.Parent = frame
     
     minusBtn.MouseButton1Click:Connect(function()
-        getgenv().TWKS_Config[configKey] = getgenv().TWKS_Config[configKey] - step
-        lbl.Text = text .. ": " .. tostring(getgenv().TWKS_Config[configKey])
+        getgenv().TWKS_Config[configKey] = math.max(0.1, getgenv().TWKS_Config[configKey] - (step == 0.1 and 0.1 or step))
+        lbl.Text = text .. ": " .. string.format("%.1f", getgenv().TWKS_Config[configKey])
     end)
     
     plusBtn.MouseButton1Click:Connect(function()
-        getgenv().TWKS_Config[configKey] = getgenv().TWKS_Config[configKey] + step
-        lbl.Text = text .. ": " .. tostring(getgenv().TWKS_Config[configKey])
+        getgenv().TWKS_Config[configKey] = getgenv().TWKS_Config[configKey] + (step == 0.1 and 0.1 or step)
+        lbl.Text = text .. ": " .. string.format("%.1f", getgenv().TWKS_Config[configKey])
     end)
 end
 
@@ -589,6 +591,7 @@ addHexColorInput(TabChams, "Chams HEX Color", "ChamsHex")
 addToggle(TabRage, "Triggerbot (Auto-Fire)", "Triggerbot")
 addToggle(TabRage, "Trigger WallCheck", "TriggerWallCheck")
 addToggle(TabRage, "Bunnyhop (Auto-Jump)", "Bunnyhop")
+addSliderBox(TabRage, "Bhop Speed Multiplier", "BhopSpeedGain", 0.1)
 addToggle(TabRage, "Anti-Aim (Desync Spin)", "AntiAim")
 addToggle(TabRage, "C-Fly (Safe Desync)", "CFly")
 addSliderBox(TabRage, "C-Fly Speed", "CFlySpeed", 10)
@@ -710,13 +713,14 @@ local function createFloatingButton(name, text, defaultPosY, configKey)
     activeFloatingButtons[configKey] = btn
 end
 
+-- Создаем плавающие кнопки с безопасными отступами
 createFloatingButton("AimBtn", "AIM", 0, "Aimbot")
-createFloatingButton("TrigBtn", "TRIG", 60, "Triggerbot")
-createFloatingButton("ESPBtn", "ESP", 120, "ESP_Enabled")
-createFloatingButton("FlyBtn", "FLY", 180, "CFly")
-createFloatingButton("HitBtn", "HIT", 240, "HitboxEnabled")
-createFloatingButton("BhopBtn", "BHOP", 300, "Bunnyhop")
-createFloatingButton("AABtn", "AA", 360, "AntiAim")
+createFloatingButton("TrigBtn", "TRIG", 55, "Triggerbot")
+createFloatingButton("ESPBtn", "ESP", 110, "ESP_Enabled")
+createFloatingButton("FlyBtn", "FLY", 165, "CFly")
+createFloatingButton("HitBtn", "HIT", 220, "HitboxEnabled")
+createFloatingButton("BhopBtn", "BHOP", 275, "Bunnyhop")
+createFloatingButton("AABtn", "AA", 330, "AntiAim")
 
 local CenterClickBtn = Instance.new("TextButton")
 CenterClickBtn.Size = UDim2.new(0, 55, 0, 55)
@@ -893,15 +897,33 @@ RunService.RenderStepped:Connect(function()
         toggleCFly(false)
     end
     
-    -- Bunnyhop (Авто-прыжок)
+    -- Улучшенный Bunnyhop с набором скорости и мгновенным сбросом при остановке
     if cfg.Bunnyhop then
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChildOfClass("Humanoid") then
                 local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if humanoid.MoveDirection.Magnitude > 0 and humanoid.FloorMaterial ~= Enum.Material.Air then
-                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                if originalWalkSpeed == 16 then
+                    originalWalkSpeed = humanoid.WalkSpeed
                 end
+                
+                if humanoid.MoveDirection.Magnitude > 0 then
+                    if humanoid.FloorMaterial ~= Enum.Material.Air then
+                        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                        -- Увеличиваем скорость при каждом успешном приземлении во время движения
+                        humanoid.WalkSpeed = math.min(humanoid.WalkSpeed * cfg.BhopSpeedGain, 80)
+                    end
+                else
+                    -- Мгновенный сброс скорости при остановке
+                    humanoid.WalkSpeed = originalWalkSpeed
+                end
+            end
+        end)
+    else
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                char:FindFirstChildOfClass("Humanoid").WalkSpeed = originalWalkSpeed
             end
         end)
     end
@@ -912,7 +934,7 @@ RunService.RenderStepped:Connect(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local rootPart = char.HumanoidRootPart
-                local rotSpeed = tick() * 200 -- Скорость вращения
+                local rotSpeed = tick() * 200
                 rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(rotSpeed % 360), 0)
             end
         end)
